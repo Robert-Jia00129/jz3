@@ -1,0 +1,6 @@
+; REQUIRES: no-competition
+; ERROR-SCRUBBER: grep -o "SyGuS feature recursion not currently supported"
+; EXPECT-ERROR: SyGuS feature recursion not currently supported
+(set-logic ALL)
+(set-feature :grammars true)
+(set-feature :recursion false)

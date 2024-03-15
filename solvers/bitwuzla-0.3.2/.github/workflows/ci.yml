@@ -1,0 +1,116 @@
+on: [push, pull_request]
+name: CI
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        name: [
+          production,
+          production-clang,
+          debug,
+          debug-clang
+        ]
+
+        exclude:
+          - name: production-clang
+            os: macos-latest
+
+          - name: debug-clang
+            os: macos-latest
+
+          - name: production-win64
+            os: macos-latest
+
+        include:
+          - name: production
+            config: --testing --no-unit-testing --python
+
+          - name: production-clang
+            config: --testing --no-unit-testing
+            env: CC=clang CXX=clang++
+
+          - name: debug
+            config: debug --python
+
+          - name: debug-clang
+            config: debug --shared
+            env: CC=clang CXX=clang++
+
+          - name: production-win64
+            os: ubuntu-latest
+            config: --win64
+
+    name: ${{ matrix.os }}:${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install Packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev ninja-build
+          if [[ "${{matrix.name}}" == "production-win64" ]]; then
+            sudo apt-get install -y mingw-w64
+            sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+            sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+          fi
+          python3 -m pip install meson pytest cython>=3.*
+          echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+
+      - name: Install Packages (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gmp pkgconfig ninja
+          python3 -m pip install meson pytest cython>=3.*
+          echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.BZLA_LIBS_KEY }}
+          submodules: 'recursive'
+
+      - name: Restore Subprojects
+        id: subprojects-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            subprojects
+            build/subprojects/
+          key: ${{ runner.os }}-${{ matrix.name }}-${{ hashFiles('subprojects/*.wrap', 'subprojects/packagefiles/**') }}-${{ hashFiles('.github/workflows/ci.yml') }}
+
+      - name: Wrap
+        if: steps.subprojects-restore.outputs.cache-hit != 'true'
+        run: meson wrap install gtest
+
+      - name: Configure
+        run: ${{ matrix.env }} ./configure.py --prefix=${{ github.workspace }}/build/install ${{ matrix.config }}
+
+      - name: Build
+        run: ninja install
+        working-directory: build
+
+      - name: Save Subprojects
+        id: subprojects-save
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            subprojects
+            build/subprojects
+          key: ${{ steps.subprojects-restore.outputs.cache-primary-key }}
+
+      - name: Test
+        if: matrix.name != 'production-win64'
+        run: meson test --print-errorlogs
+        working-directory: build
+
+      - name: Examples
+        if: matrix.name != 'production-win64'
+        working-directory: examples
+        run: |
+          pkgconfigdir=$(find ${{ github.workspace }}/build/install/lib -name pkgconfig)
+          meson setup build --pkg-config-path=$pkgconfigdir
+          cd build
+          meson test

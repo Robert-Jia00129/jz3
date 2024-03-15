@@ -1,0 +1,15 @@
+(set-logic QF_BV)
+(declare-const x (_ BitVec 3))
+(assert (= x #b010))
+(set-info :status sat)
+(check-sat)
+
+(reset)
+
+(set-logic QF_ABV)
+(declare-const x (_ BitVec 3))
+(declare-const a ( Array (_ BitVec 2) (_ BitVec 3)))
+(assert (= x #b011))
+(assert (= x (select a #b01)))
+(set-info :status sat)
+(check-sat)

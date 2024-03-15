@@ -1,0 +1,1 @@
+regress/parser/smt2perr199.smt2:3:47: invalid annotation syntax, expected attribute
