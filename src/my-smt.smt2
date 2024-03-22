@@ -1,410 +1,259 @@
+(set-logic QF_LIA)
 ; benchmark generated from python API
 (set-info :status unknown)
-(declare-fun cell_1_1 () Int)
-(declare-fun cell_2_1 () Int)
-(declare-fun cell_3_1 () Int)
-(declare-fun cell_4_1 () Int)
-(declare-fun cell_5_1 () Int)
-(declare-fun cell_6_1 () Int)
-(declare-fun cell_7_1 () Int)
-(declare-fun cell_8_1 () Int)
-(declare-fun cell_9_1 () Int)
-(declare-fun cell_1_2 () Int)
-(declare-fun cell_2_2 () Int)
-(declare-fun cell_3_2 () Int)
-(declare-fun cell_4_2 () Int)
-(declare-fun cell_5_2 () Int)
-(declare-fun cell_6_2 () Int)
-(declare-fun cell_7_2 () Int)
-(declare-fun cell_8_2 () Int)
-(declare-fun cell_9_2 () Int)
-(declare-fun cell_1_3 () Int)
-(declare-fun cell_2_3 () Int)
-(declare-fun cell_3_3 () Int)
-(declare-fun cell_4_3 () Int)
-(declare-fun cell_5_3 () Int)
-(declare-fun cell_6_3 () Int)
-(declare-fun cell_7_3 () Int)
-(declare-fun cell_8_3 () Int)
-(declare-fun cell_9_3 () Int)
-(declare-fun cell_1_4 () Int)
-(declare-fun cell_2_4 () Int)
-(declare-fun cell_3_4 () Int)
-(declare-fun cell_4_4 () Int)
-(declare-fun cell_5_4 () Int)
-(declare-fun cell_6_4 () Int)
-(declare-fun cell_7_4 () Int)
-(declare-fun cell_8_4 () Int)
-(declare-fun cell_9_4 () Int)
-(declare-fun cell_1_5 () Int)
-(declare-fun cell_2_5 () Int)
-(declare-fun cell_3_5 () Int)
-(declare-fun cell_4_5 () Int)
-(declare-fun cell_5_5 () Int)
-(declare-fun cell_6_5 () Int)
-(declare-fun cell_7_5 () Int)
-(declare-fun cell_8_5 () Int)
-(declare-fun cell_9_5 () Int)
-(declare-fun cell_1_6 () Int)
-(declare-fun cell_2_6 () Int)
-(declare-fun cell_3_6 () Int)
-(declare-fun cell_4_6 () Int)
-(declare-fun cell_5_6 () Int)
-(declare-fun cell_6_6 () Int)
-(declare-fun cell_7_6 () Int)
-(declare-fun cell_8_6 () Int)
-(declare-fun cell_9_6 () Int)
-(declare-fun cell_1_7 () Int)
-(declare-fun cell_2_7 () Int)
-(declare-fun cell_3_7 () Int)
-(declare-fun cell_4_7 () Int)
-(declare-fun cell_5_7 () Int)
-(declare-fun cell_6_7 () Int)
-(declare-fun cell_7_7 () Int)
-(declare-fun cell_8_7 () Int)
-(declare-fun cell_9_7 () Int)
-(declare-fun cell_1_8 () Int)
-(declare-fun cell_2_8 () Int)
-(declare-fun cell_3_8 () Int)
-(declare-fun cell_4_8 () Int)
-(declare-fun cell_5_8 () Int)
-(declare-fun cell_6_8 () Int)
-(declare-fun cell_7_8 () Int)
-(declare-fun cell_8_8 () Int)
-(declare-fun cell_9_8 () Int)
-(declare-fun cell_1_9 () Int)
-(declare-fun cell_2_9 () Int)
-(declare-fun cell_3_9 () Int)
-(declare-fun cell_4_9 () Int)
-(declare-fun cell_5_9 () Int)
-(declare-fun cell_6_9 () Int)
-(declare-fun cell_7_9 () Int)
-(declare-fun cell_8_9 () Int)
-(declare-fun cell_9_9 () Int)
+(declare-sort Digit 0)
+ (declare-fun C9 () Digit)
+(declare-fun cell_1_1 () Digit)
+(declare-fun C8 () Digit)
+(declare-fun C7 () Digit)
+(declare-fun C6 () Digit)
+(declare-fun C5 () Digit)
+(declare-fun C4 () Digit)
+(declare-fun C3 () Digit)
+(declare-fun C2 () Digit)
+(declare-fun C1 () Digit)
+(declare-fun cell_2_1 () Digit)
+(declare-fun cell_3_1 () Digit)
+(declare-fun cell_4_1 () Digit)
+(declare-fun cell_5_1 () Digit)
+(declare-fun cell_6_1 () Digit)
+(declare-fun cell_7_1 () Digit)
+(declare-fun cell_8_1 () Digit)
+(declare-fun cell_9_1 () Digit)
+(declare-fun cell_1_2 () Digit)
+(declare-fun cell_2_2 () Digit)
+(declare-fun cell_3_2 () Digit)
+(declare-fun cell_4_2 () Digit)
+(declare-fun cell_5_2 () Digit)
+(declare-fun cell_6_2 () Digit)
+(declare-fun cell_7_2 () Digit)
+(declare-fun cell_8_2 () Digit)
+(declare-fun cell_9_2 () Digit)
+(declare-fun cell_1_3 () Digit)
+(declare-fun cell_2_3 () Digit)
+(declare-fun cell_3_3 () Digit)
+(declare-fun cell_4_3 () Digit)
+(declare-fun cell_5_3 () Digit)
+(declare-fun cell_6_3 () Digit)
+(declare-fun cell_7_3 () Digit)
+(declare-fun cell_8_3 () Digit)
+(declare-fun cell_9_3 () Digit)
+(declare-fun cell_1_4 () Digit)
+(declare-fun cell_2_4 () Digit)
+(declare-fun cell_3_4 () Digit)
+(declare-fun cell_4_4 () Digit)
+(declare-fun cell_5_4 () Digit)
+(declare-fun cell_6_4 () Digit)
+(declare-fun cell_7_4 () Digit)
+(declare-fun cell_8_4 () Digit)
+(declare-fun cell_9_4 () Digit)
+(declare-fun cell_1_5 () Digit)
+(declare-fun cell_2_5 () Digit)
+(declare-fun cell_3_5 () Digit)
+(declare-fun cell_4_5 () Digit)
+(declare-fun cell_5_5 () Digit)
+(declare-fun cell_6_5 () Digit)
+(declare-fun cell_7_5 () Digit)
+(declare-fun cell_8_5 () Digit)
+(declare-fun cell_9_5 () Digit)
+(declare-fun cell_1_6 () Digit)
+(declare-fun cell_2_6 () Digit)
+(declare-fun cell_3_6 () Digit)
+(declare-fun cell_4_6 () Digit)
+(declare-fun cell_5_6 () Digit)
+(declare-fun cell_6_6 () Digit)
+(declare-fun cell_7_6 () Digit)
+(declare-fun cell_8_6 () Digit)
+(declare-fun cell_9_6 () Digit)
+(declare-fun cell_1_7 () Digit)
+(declare-fun cell_2_7 () Digit)
+(declare-fun cell_3_7 () Digit)
+(declare-fun cell_4_7 () Digit)
+(declare-fun cell_5_7 () Digit)
+(declare-fun cell_6_7 () Digit)
+(declare-fun cell_7_7 () Digit)
+(declare-fun cell_8_7 () Digit)
+(declare-fun cell_9_7 () Digit)
+(declare-fun cell_1_8 () Digit)
+(declare-fun cell_2_8 () Digit)
+(declare-fun cell_3_8 () Digit)
+(declare-fun cell_4_8 () Digit)
+(declare-fun cell_5_8 () Digit)
+(declare-fun cell_6_8 () Digit)
+(declare-fun cell_7_8 () Digit)
+(declare-fun cell_8_8 () Digit)
+(declare-fun cell_9_8 () Digit)
+(declare-fun cell_1_9 () Digit)
+(declare-fun cell_2_9 () Digit)
+(declare-fun cell_3_9 () Digit)
+(declare-fun cell_4_9 () Digit)
+(declare-fun cell_5_9 () Digit)
+(declare-fun cell_6_9 () Digit)
+(declare-fun cell_7_9 () Digit)
+(declare-fun cell_8_9 () Digit)
+(declare-fun cell_9_9 () Digit)
 (assert
- (>= cell_1_1 1))
+ (or (= cell_1_1 C1) (= cell_1_1 C2) (= cell_1_1 C3) (= cell_1_1 C4) (= cell_1_1 C5) (= cell_1_1 C6) (= cell_1_1 C7) (= cell_1_1 C8) (= cell_1_1 C9)))
 (assert
- (<= cell_1_1 9))
+ (or (= cell_2_1 C1) (= cell_2_1 C2) (= cell_2_1 C3) (= cell_2_1 C4) (= cell_2_1 C5) (= cell_2_1 C6) (= cell_2_1 C7) (= cell_2_1 C8) (= cell_2_1 C9)))
 (assert
- (>= cell_2_1 1))
+ (or (= cell_3_1 C1) (= cell_3_1 C2) (= cell_3_1 C3) (= cell_3_1 C4) (= cell_3_1 C5) (= cell_3_1 C6) (= cell_3_1 C7) (= cell_3_1 C8) (= cell_3_1 C9)))
 (assert
- (<= cell_2_1 9))
+ (or (= cell_4_1 C1) (= cell_4_1 C2) (= cell_4_1 C3) (= cell_4_1 C4) (= cell_4_1 C5) (= cell_4_1 C6) (= cell_4_1 C7) (= cell_4_1 C8) (= cell_4_1 C9)))
 (assert
- (>= cell_3_1 1))
+ (or (= cell_5_1 C1) (= cell_5_1 C2) (= cell_5_1 C3) (= cell_5_1 C4) (= cell_5_1 C5) (= cell_5_1 C6) (= cell_5_1 C7) (= cell_5_1 C8) (= cell_5_1 C9)))
 (assert
- (<= cell_3_1 9))
+ (or (= cell_6_1 C1) (= cell_6_1 C2) (= cell_6_1 C3) (= cell_6_1 C4) (= cell_6_1 C5) (= cell_6_1 C6) (= cell_6_1 C7) (= cell_6_1 C8) (= cell_6_1 C9)))
 (assert
- (>= cell_4_1 1))
+ (or (= cell_7_1 C1) (= cell_7_1 C2) (= cell_7_1 C3) (= cell_7_1 C4) (= cell_7_1 C5) (= cell_7_1 C6) (= cell_7_1 C7) (= cell_7_1 C8) (= cell_7_1 C9)))
 (assert
- (<= cell_4_1 9))
+ (or (= cell_8_1 C1) (= cell_8_1 C2) (= cell_8_1 C3) (= cell_8_1 C4) (= cell_8_1 C5) (= cell_8_1 C6) (= cell_8_1 C7) (= cell_8_1 C8) (= cell_8_1 C9)))
 (assert
- (>= cell_5_1 1))
+ (or (= cell_9_1 C1) (= cell_9_1 C2) (= cell_9_1 C3) (= cell_9_1 C4) (= cell_9_1 C5) (= cell_9_1 C6) (= cell_9_1 C7) (= cell_9_1 C8) (= cell_9_1 C9)))
 (assert
- (<= cell_5_1 9))
+ (or (= cell_1_2 C1) (= cell_1_2 C2) (= cell_1_2 C3) (= cell_1_2 C4) (= cell_1_2 C5) (= cell_1_2 C6) (= cell_1_2 C7) (= cell_1_2 C8) (= cell_1_2 C9)))
 (assert
- (>= cell_6_1 1))
+ (or (= cell_2_2 C1) (= cell_2_2 C2) (= cell_2_2 C3) (= cell_2_2 C4) (= cell_2_2 C5) (= cell_2_2 C6) (= cell_2_2 C7) (= cell_2_2 C8) (= cell_2_2 C9)))
 (assert
- (<= cell_6_1 9))
+ (or (= cell_3_2 C1) (= cell_3_2 C2) (= cell_3_2 C3) (= cell_3_2 C4) (= cell_3_2 C5) (= cell_3_2 C6) (= cell_3_2 C7) (= cell_3_2 C8) (= cell_3_2 C9)))
 (assert
- (>= cell_7_1 1))
+ (or (= cell_4_2 C1) (= cell_4_2 C2) (= cell_4_2 C3) (= cell_4_2 C4) (= cell_4_2 C5) (= cell_4_2 C6) (= cell_4_2 C7) (= cell_4_2 C8) (= cell_4_2 C9)))
 (assert
- (<= cell_7_1 9))
+ (or (= cell_5_2 C1) (= cell_5_2 C2) (= cell_5_2 C3) (= cell_5_2 C4) (= cell_5_2 C5) (= cell_5_2 C6) (= cell_5_2 C7) (= cell_5_2 C8) (= cell_5_2 C9)))
 (assert
- (>= cell_8_1 1))
+ (or (= cell_6_2 C1) (= cell_6_2 C2) (= cell_6_2 C3) (= cell_6_2 C4) (= cell_6_2 C5) (= cell_6_2 C6) (= cell_6_2 C7) (= cell_6_2 C8) (= cell_6_2 C9)))
 (assert
- (<= cell_8_1 9))
+ (or (= cell_7_2 C1) (= cell_7_2 C2) (= cell_7_2 C3) (= cell_7_2 C4) (= cell_7_2 C5) (= cell_7_2 C6) (= cell_7_2 C7) (= cell_7_2 C8) (= cell_7_2 C9)))
 (assert
- (>= cell_9_1 1))
+ (or (= cell_8_2 C1) (= cell_8_2 C2) (= cell_8_2 C3) (= cell_8_2 C4) (= cell_8_2 C5) (= cell_8_2 C6) (= cell_8_2 C7) (= cell_8_2 C8) (= cell_8_2 C9)))
 (assert
- (<= cell_9_1 9))
+ (or (= cell_9_2 C1) (= cell_9_2 C2) (= cell_9_2 C3) (= cell_9_2 C4) (= cell_9_2 C5) (= cell_9_2 C6) (= cell_9_2 C7) (= cell_9_2 C8) (= cell_9_2 C9)))
 (assert
- (>= cell_1_2 1))
+ (or (= cell_1_3 C1) (= cell_1_3 C2) (= cell_1_3 C3) (= cell_1_3 C4) (= cell_1_3 C5) (= cell_1_3 C6) (= cell_1_3 C7) (= cell_1_3 C8) (= cell_1_3 C9)))
 (assert
- (<= cell_1_2 9))
+ (or (= cell_2_3 C1) (= cell_2_3 C2) (= cell_2_3 C3) (= cell_2_3 C4) (= cell_2_3 C5) (= cell_2_3 C6) (= cell_2_3 C7) (= cell_2_3 C8) (= cell_2_3 C9)))
 (assert
- (>= cell_2_2 1))
+ (or (= cell_3_3 C1) (= cell_3_3 C2) (= cell_3_3 C3) (= cell_3_3 C4) (= cell_3_3 C5) (= cell_3_3 C6) (= cell_3_3 C7) (= cell_3_3 C8) (= cell_3_3 C9)))
 (assert
- (<= cell_2_2 9))
+ (or (= cell_4_3 C1) (= cell_4_3 C2) (= cell_4_3 C3) (= cell_4_3 C4) (= cell_4_3 C5) (= cell_4_3 C6) (= cell_4_3 C7) (= cell_4_3 C8) (= cell_4_3 C9)))
 (assert
- (>= cell_3_2 1))
+ (or (= cell_5_3 C1) (= cell_5_3 C2) (= cell_5_3 C3) (= cell_5_3 C4) (= cell_5_3 C5) (= cell_5_3 C6) (= cell_5_3 C7) (= cell_5_3 C8) (= cell_5_3 C9)))
 (assert
- (<= cell_3_2 9))
+ (or (= cell_6_3 C1) (= cell_6_3 C2) (= cell_6_3 C3) (= cell_6_3 C4) (= cell_6_3 C5) (= cell_6_3 C6) (= cell_6_3 C7) (= cell_6_3 C8) (= cell_6_3 C9)))
 (assert
- (>= cell_4_2 1))
+ (or (= cell_7_3 C1) (= cell_7_3 C2) (= cell_7_3 C3) (= cell_7_3 C4) (= cell_7_3 C5) (= cell_7_3 C6) (= cell_7_3 C7) (= cell_7_3 C8) (= cell_7_3 C9)))
 (assert
- (<= cell_4_2 9))
+ (or (= cell_8_3 C1) (= cell_8_3 C2) (= cell_8_3 C3) (= cell_8_3 C4) (= cell_8_3 C5) (= cell_8_3 C6) (= cell_8_3 C7) (= cell_8_3 C8) (= cell_8_3 C9)))
 (assert
- (>= cell_5_2 1))
+ (or (= cell_9_3 C1) (= cell_9_3 C2) (= cell_9_3 C3) (= cell_9_3 C4) (= cell_9_3 C5) (= cell_9_3 C6) (= cell_9_3 C7) (= cell_9_3 C8) (= cell_9_3 C9)))
 (assert
- (<= cell_5_2 9))
+ (or (= cell_1_4 C1) (= cell_1_4 C2) (= cell_1_4 C3) (= cell_1_4 C4) (= cell_1_4 C5) (= cell_1_4 C6) (= cell_1_4 C7) (= cell_1_4 C8) (= cell_1_4 C9)))
 (assert
- (>= cell_6_2 1))
+ (or (= cell_2_4 C1) (= cell_2_4 C2) (= cell_2_4 C3) (= cell_2_4 C4) (= cell_2_4 C5) (= cell_2_4 C6) (= cell_2_4 C7) (= cell_2_4 C8) (= cell_2_4 C9)))
 (assert
- (<= cell_6_2 9))
+ (or (= cell_3_4 C1) (= cell_3_4 C2) (= cell_3_4 C3) (= cell_3_4 C4) (= cell_3_4 C5) (= cell_3_4 C6) (= cell_3_4 C7) (= cell_3_4 C8) (= cell_3_4 C9)))
 (assert
- (>= cell_7_2 1))
+ (or (= cell_4_4 C1) (= cell_4_4 C2) (= cell_4_4 C3) (= cell_4_4 C4) (= cell_4_4 C5) (= cell_4_4 C6) (= cell_4_4 C7) (= cell_4_4 C8) (= cell_4_4 C9)))
 (assert
- (<= cell_7_2 9))
+ (or (= cell_5_4 C1) (= cell_5_4 C2) (= cell_5_4 C3) (= cell_5_4 C4) (= cell_5_4 C5) (= cell_5_4 C6) (= cell_5_4 C7) (= cell_5_4 C8) (= cell_5_4 C9)))
 (assert
- (>= cell_8_2 1))
+ (or (= cell_6_4 C1) (= cell_6_4 C2) (= cell_6_4 C3) (= cell_6_4 C4) (= cell_6_4 C5) (= cell_6_4 C6) (= cell_6_4 C7) (= cell_6_4 C8) (= cell_6_4 C9)))
 (assert
- (<= cell_8_2 9))
+ (or (= cell_7_4 C1) (= cell_7_4 C2) (= cell_7_4 C3) (= cell_7_4 C4) (= cell_7_4 C5) (= cell_7_4 C6) (= cell_7_4 C7) (= cell_7_4 C8) (= cell_7_4 C9)))
 (assert
- (>= cell_9_2 1))
+ (or (= cell_8_4 C1) (= cell_8_4 C2) (= cell_8_4 C3) (= cell_8_4 C4) (= cell_8_4 C5) (= cell_8_4 C6) (= cell_8_4 C7) (= cell_8_4 C8) (= cell_8_4 C9)))
 (assert
- (<= cell_9_2 9))
+ (or (= cell_9_4 C1) (= cell_9_4 C2) (= cell_9_4 C3) (= cell_9_4 C4) (= cell_9_4 C5) (= cell_9_4 C6) (= cell_9_4 C7) (= cell_9_4 C8) (= cell_9_4 C9)))
 (assert
- (>= cell_1_3 1))
+ (or (= cell_1_5 C1) (= cell_1_5 C2) (= cell_1_5 C3) (= cell_1_5 C4) (= cell_1_5 C5) (= cell_1_5 C6) (= cell_1_5 C7) (= cell_1_5 C8) (= cell_1_5 C9)))
 (assert
- (<= cell_1_3 9))
+ (or (= cell_2_5 C1) (= cell_2_5 C2) (= cell_2_5 C3) (= cell_2_5 C4) (= cell_2_5 C5) (= cell_2_5 C6) (= cell_2_5 C7) (= cell_2_5 C8) (= cell_2_5 C9)))
 (assert
- (>= cell_2_3 1))
+ (or (= cell_3_5 C1) (= cell_3_5 C2) (= cell_3_5 C3) (= cell_3_5 C4) (= cell_3_5 C5) (= cell_3_5 C6) (= cell_3_5 C7) (= cell_3_5 C8) (= cell_3_5 C9)))
 (assert
- (<= cell_2_3 9))
+ (or (= cell_4_5 C1) (= cell_4_5 C2) (= cell_4_5 C3) (= cell_4_5 C4) (= cell_4_5 C5) (= cell_4_5 C6) (= cell_4_5 C7) (= cell_4_5 C8) (= cell_4_5 C9)))
 (assert
- (>= cell_3_3 1))
+ (or (= cell_5_5 C1) (= cell_5_5 C2) (= cell_5_5 C3) (= cell_5_5 C4) (= cell_5_5 C5) (= cell_5_5 C6) (= cell_5_5 C7) (= cell_5_5 C8) (= cell_5_5 C9)))
 (assert
- (<= cell_3_3 9))
+ (or (= cell_6_5 C1) (= cell_6_5 C2) (= cell_6_5 C3) (= cell_6_5 C4) (= cell_6_5 C5) (= cell_6_5 C6) (= cell_6_5 C7) (= cell_6_5 C8) (= cell_6_5 C9)))
 (assert
- (>= cell_4_3 1))
+ (or (= cell_7_5 C1) (= cell_7_5 C2) (= cell_7_5 C3) (= cell_7_5 C4) (= cell_7_5 C5) (= cell_7_5 C6) (= cell_7_5 C7) (= cell_7_5 C8) (= cell_7_5 C9)))
 (assert
- (<= cell_4_3 9))
+ (or (= cell_8_5 C1) (= cell_8_5 C2) (= cell_8_5 C3) (= cell_8_5 C4) (= cell_8_5 C5) (= cell_8_5 C6) (= cell_8_5 C7) (= cell_8_5 C8) (= cell_8_5 C9)))
 (assert
- (>= cell_5_3 1))
+ (or (= cell_9_5 C1) (= cell_9_5 C2) (= cell_9_5 C3) (= cell_9_5 C4) (= cell_9_5 C5) (= cell_9_5 C6) (= cell_9_5 C7) (= cell_9_5 C8) (= cell_9_5 C9)))
 (assert
- (<= cell_5_3 9))
+ (or (= cell_1_6 C1) (= cell_1_6 C2) (= cell_1_6 C3) (= cell_1_6 C4) (= cell_1_6 C5) (= cell_1_6 C6) (= cell_1_6 C7) (= cell_1_6 C8) (= cell_1_6 C9)))
 (assert
- (>= cell_6_3 1))
+ (or (= cell_2_6 C1) (= cell_2_6 C2) (= cell_2_6 C3) (= cell_2_6 C4) (= cell_2_6 C5) (= cell_2_6 C6) (= cell_2_6 C7) (= cell_2_6 C8) (= cell_2_6 C9)))
 (assert
- (<= cell_6_3 9))
+ (or (= cell_3_6 C1) (= cell_3_6 C2) (= cell_3_6 C3) (= cell_3_6 C4) (= cell_3_6 C5) (= cell_3_6 C6) (= cell_3_6 C7) (= cell_3_6 C8) (= cell_3_6 C9)))
 (assert
- (>= cell_7_3 1))
+ (or (= cell_4_6 C1) (= cell_4_6 C2) (= cell_4_6 C3) (= cell_4_6 C4) (= cell_4_6 C5) (= cell_4_6 C6) (= cell_4_6 C7) (= cell_4_6 C8) (= cell_4_6 C9)))
 (assert
- (<= cell_7_3 9))
+ (or (= cell_5_6 C1) (= cell_5_6 C2) (= cell_5_6 C3) (= cell_5_6 C4) (= cell_5_6 C5) (= cell_5_6 C6) (= cell_5_6 C7) (= cell_5_6 C8) (= cell_5_6 C9)))
 (assert
- (>= cell_8_3 1))
+ (or (= cell_6_6 C1) (= cell_6_6 C2) (= cell_6_6 C3) (= cell_6_6 C4) (= cell_6_6 C5) (= cell_6_6 C6) (= cell_6_6 C7) (= cell_6_6 C8) (= cell_6_6 C9)))
 (assert
- (<= cell_8_3 9))
+ (or (= cell_7_6 C1) (= cell_7_6 C2) (= cell_7_6 C3) (= cell_7_6 C4) (= cell_7_6 C5) (= cell_7_6 C6) (= cell_7_6 C7) (= cell_7_6 C8) (= cell_7_6 C9)))
 (assert
- (>= cell_9_3 1))
+ (or (= cell_8_6 C1) (= cell_8_6 C2) (= cell_8_6 C3) (= cell_8_6 C4) (= cell_8_6 C5) (= cell_8_6 C6) (= cell_8_6 C7) (= cell_8_6 C8) (= cell_8_6 C9)))
 (assert
- (<= cell_9_3 9))
+ (or (= cell_9_6 C1) (= cell_9_6 C2) (= cell_9_6 C3) (= cell_9_6 C4) (= cell_9_6 C5) (= cell_9_6 C6) (= cell_9_6 C7) (= cell_9_6 C8) (= cell_9_6 C9)))
 (assert
- (>= cell_1_4 1))
+ (or (= cell_1_7 C1) (= cell_1_7 C2) (= cell_1_7 C3) (= cell_1_7 C4) (= cell_1_7 C5) (= cell_1_7 C6) (= cell_1_7 C7) (= cell_1_7 C8) (= cell_1_7 C9)))
 (assert
- (<= cell_1_4 9))
+ (or (= cell_2_7 C1) (= cell_2_7 C2) (= cell_2_7 C3) (= cell_2_7 C4) (= cell_2_7 C5) (= cell_2_7 C6) (= cell_2_7 C7) (= cell_2_7 C8) (= cell_2_7 C9)))
 (assert
- (>= cell_2_4 1))
+ (or (= cell_3_7 C1) (= cell_3_7 C2) (= cell_3_7 C3) (= cell_3_7 C4) (= cell_3_7 C5) (= cell_3_7 C6) (= cell_3_7 C7) (= cell_3_7 C8) (= cell_3_7 C9)))
 (assert
- (<= cell_2_4 9))
+ (or (= cell_4_7 C1) (= cell_4_7 C2) (= cell_4_7 C3) (= cell_4_7 C4) (= cell_4_7 C5) (= cell_4_7 C6) (= cell_4_7 C7) (= cell_4_7 C8) (= cell_4_7 C9)))
 (assert
- (>= cell_3_4 1))
+ (or (= cell_5_7 C1) (= cell_5_7 C2) (= cell_5_7 C3) (= cell_5_7 C4) (= cell_5_7 C5) (= cell_5_7 C6) (= cell_5_7 C7) (= cell_5_7 C8) (= cell_5_7 C9)))
 (assert
- (<= cell_3_4 9))
+ (or (= cell_6_7 C1) (= cell_6_7 C2) (= cell_6_7 C3) (= cell_6_7 C4) (= cell_6_7 C5) (= cell_6_7 C6) (= cell_6_7 C7) (= cell_6_7 C8) (= cell_6_7 C9)))
 (assert
- (>= cell_4_4 1))
+ (or (= cell_7_7 C1) (= cell_7_7 C2) (= cell_7_7 C3) (= cell_7_7 C4) (= cell_7_7 C5) (= cell_7_7 C6) (= cell_7_7 C7) (= cell_7_7 C8) (= cell_7_7 C9)))
 (assert
- (<= cell_4_4 9))
+ (or (= cell_8_7 C1) (= cell_8_7 C2) (= cell_8_7 C3) (= cell_8_7 C4) (= cell_8_7 C5) (= cell_8_7 C6) (= cell_8_7 C7) (= cell_8_7 C8) (= cell_8_7 C9)))
 (assert
- (>= cell_5_4 1))
+ (or (= cell_9_7 C1) (= cell_9_7 C2) (= cell_9_7 C3) (= cell_9_7 C4) (= cell_9_7 C5) (= cell_9_7 C6) (= cell_9_7 C7) (= cell_9_7 C8) (= cell_9_7 C9)))
 (assert
- (<= cell_5_4 9))
+ (or (= cell_1_8 C1) (= cell_1_8 C2) (= cell_1_8 C3) (= cell_1_8 C4) (= cell_1_8 C5) (= cell_1_8 C6) (= cell_1_8 C7) (= cell_1_8 C8) (= cell_1_8 C9)))
 (assert
- (>= cell_6_4 1))
+ (or (= cell_2_8 C1) (= cell_2_8 C2) (= cell_2_8 C3) (= cell_2_8 C4) (= cell_2_8 C5) (= cell_2_8 C6) (= cell_2_8 C7) (= cell_2_8 C8) (= cell_2_8 C9)))
 (assert
- (<= cell_6_4 9))
+ (or (= cell_3_8 C1) (= cell_3_8 C2) (= cell_3_8 C3) (= cell_3_8 C4) (= cell_3_8 C5) (= cell_3_8 C6) (= cell_3_8 C7) (= cell_3_8 C8) (= cell_3_8 C9)))
 (assert
- (>= cell_7_4 1))
+ (or (= cell_4_8 C1) (= cell_4_8 C2) (= cell_4_8 C3) (= cell_4_8 C4) (= cell_4_8 C5) (= cell_4_8 C6) (= cell_4_8 C7) (= cell_4_8 C8) (= cell_4_8 C9)))
 (assert
- (<= cell_7_4 9))
+ (or (= cell_5_8 C1) (= cell_5_8 C2) (= cell_5_8 C3) (= cell_5_8 C4) (= cell_5_8 C5) (= cell_5_8 C6) (= cell_5_8 C7) (= cell_5_8 C8) (= cell_5_8 C9)))
 (assert
- (>= cell_8_4 1))
+ (or (= cell_6_8 C1) (= cell_6_8 C2) (= cell_6_8 C3) (= cell_6_8 C4) (= cell_6_8 C5) (= cell_6_8 C6) (= cell_6_8 C7) (= cell_6_8 C8) (= cell_6_8 C9)))
 (assert
- (<= cell_8_4 9))
+ (or (= cell_7_8 C1) (= cell_7_8 C2) (= cell_7_8 C3) (= cell_7_8 C4) (= cell_7_8 C5) (= cell_7_8 C6) (= cell_7_8 C7) (= cell_7_8 C8) (= cell_7_8 C9)))
 (assert
- (>= cell_9_4 1))
+ (or (= cell_8_8 C1) (= cell_8_8 C2) (= cell_8_8 C3) (= cell_8_8 C4) (= cell_8_8 C5) (= cell_8_8 C6) (= cell_8_8 C7) (= cell_8_8 C8) (= cell_8_8 C9)))
 (assert
- (<= cell_9_4 9))
+ (or (= cell_9_8 C1) (= cell_9_8 C2) (= cell_9_8 C3) (= cell_9_8 C4) (= cell_9_8 C5) (= cell_9_8 C6) (= cell_9_8 C7) (= cell_9_8 C8) (= cell_9_8 C9)))
 (assert
- (>= cell_1_5 1))
+ (or (= cell_1_9 C1) (= cell_1_9 C2) (= cell_1_9 C3) (= cell_1_9 C4) (= cell_1_9 C5) (= cell_1_9 C6) (= cell_1_9 C7) (= cell_1_9 C8) (= cell_1_9 C9)))
 (assert
- (<= cell_1_5 9))
+ (or (= cell_2_9 C1) (= cell_2_9 C2) (= cell_2_9 C3) (= cell_2_9 C4) (= cell_2_9 C5) (= cell_2_9 C6) (= cell_2_9 C7) (= cell_2_9 C8) (= cell_2_9 C9)))
 (assert
- (>= cell_2_5 1))
+ (or (= cell_3_9 C1) (= cell_3_9 C2) (= cell_3_9 C3) (= cell_3_9 C4) (= cell_3_9 C5) (= cell_3_9 C6) (= cell_3_9 C7) (= cell_3_9 C8) (= cell_3_9 C9)))
 (assert
- (<= cell_2_5 9))
+ (or (= cell_4_9 C1) (= cell_4_9 C2) (= cell_4_9 C3) (= cell_4_9 C4) (= cell_4_9 C5) (= cell_4_9 C6) (= cell_4_9 C7) (= cell_4_9 C8) (= cell_4_9 C9)))
 (assert
- (>= cell_3_5 1))
+ (or (= cell_5_9 C1) (= cell_5_9 C2) (= cell_5_9 C3) (= cell_5_9 C4) (= cell_5_9 C5) (= cell_5_9 C6) (= cell_5_9 C7) (= cell_5_9 C8) (= cell_5_9 C9)))
 (assert
- (<= cell_3_5 9))
+ (or (= cell_6_9 C1) (= cell_6_9 C2) (= cell_6_9 C3) (= cell_6_9 C4) (= cell_6_9 C5) (= cell_6_9 C6) (= cell_6_9 C7) (= cell_6_9 C8) (= cell_6_9 C9)))
 (assert
- (>= cell_4_5 1))
+ (or (= cell_7_9 C1) (= cell_7_9 C2) (= cell_7_9 C3) (= cell_7_9 C4) (= cell_7_9 C5) (= cell_7_9 C6) (= cell_7_9 C7) (= cell_7_9 C8) (= cell_7_9 C9)))
 (assert
- (<= cell_4_5 9))
+ (or (= cell_8_9 C1) (= cell_8_9 C2) (= cell_8_9 C3) (= cell_8_9 C4) (= cell_8_9 C5) (= cell_8_9 C6) (= cell_8_9 C7) (= cell_8_9 C8) (= cell_8_9 C9)))
 (assert
- (>= cell_5_5 1))
-(assert
- (<= cell_5_5 9))
-(assert
- (>= cell_6_5 1))
-(assert
- (<= cell_6_5 9))
-(assert
- (>= cell_7_5 1))
-(assert
- (<= cell_7_5 9))
-(assert
- (>= cell_8_5 1))
-(assert
- (<= cell_8_5 9))
-(assert
- (>= cell_9_5 1))
-(assert
- (<= cell_9_5 9))
-(assert
- (>= cell_1_6 1))
-(assert
- (<= cell_1_6 9))
-(assert
- (>= cell_2_6 1))
-(assert
- (<= cell_2_6 9))
-(assert
- (>= cell_3_6 1))
-(assert
- (<= cell_3_6 9))
-(assert
- (>= cell_4_6 1))
-(assert
- (<= cell_4_6 9))
-(assert
- (>= cell_5_6 1))
-(assert
- (<= cell_5_6 9))
-(assert
- (>= cell_6_6 1))
-(assert
- (<= cell_6_6 9))
-(assert
- (>= cell_7_6 1))
-(assert
- (<= cell_7_6 9))
-(assert
- (>= cell_8_6 1))
-(assert
- (<= cell_8_6 9))
-(assert
- (>= cell_9_6 1))
-(assert
- (<= cell_9_6 9))
-(assert
- (>= cell_1_7 1))
-(assert
- (<= cell_1_7 9))
-(assert
- (>= cell_2_7 1))
-(assert
- (<= cell_2_7 9))
-(assert
- (>= cell_3_7 1))
-(assert
- (<= cell_3_7 9))
-(assert
- (>= cell_4_7 1))
-(assert
- (<= cell_4_7 9))
-(assert
- (>= cell_5_7 1))
-(assert
- (<= cell_5_7 9))
-(assert
- (>= cell_6_7 1))
-(assert
- (<= cell_6_7 9))
-(assert
- (>= cell_7_7 1))
-(assert
- (<= cell_7_7 9))
-(assert
- (>= cell_8_7 1))
-(assert
- (<= cell_8_7 9))
-(assert
- (>= cell_9_7 1))
-(assert
- (<= cell_9_7 9))
-(assert
- (>= cell_1_8 1))
-(assert
- (<= cell_1_8 9))
-(assert
- (>= cell_2_8 1))
-(assert
- (<= cell_2_8 9))
-(assert
- (>= cell_3_8 1))
-(assert
- (<= cell_3_8 9))
-(assert
- (>= cell_4_8 1))
-(assert
- (<= cell_4_8 9))
-(assert
- (>= cell_5_8 1))
-(assert
- (<= cell_5_8 9))
-(assert
- (>= cell_6_8 1))
-(assert
- (<= cell_6_8 9))
-(assert
- (>= cell_7_8 1))
-(assert
- (<= cell_7_8 9))
-(assert
- (>= cell_8_8 1))
-(assert
- (<= cell_8_8 9))
-(assert
- (>= cell_9_8 1))
-(assert
- (<= cell_9_8 9))
-(assert
- (>= cell_1_9 1))
-(assert
- (<= cell_1_9 9))
-(assert
- (>= cell_2_9 1))
-(assert
- (<= cell_2_9 9))
-(assert
- (>= cell_3_9 1))
-(assert
- (<= cell_3_9 9))
-(assert
- (>= cell_4_9 1))
-(assert
- (<= cell_4_9 9))
-(assert
- (>= cell_5_9 1))
-(assert
- (<= cell_5_9 9))
-(assert
- (>= cell_6_9 1))
-(assert
- (<= cell_6_9 9))
-(assert
- (>= cell_7_9 1))
-(assert
- (<= cell_7_9 9))
-(assert
- (>= cell_8_9 1))
-(assert
- (<= cell_8_9 9))
-(assert
- (>= cell_9_9 1))
-(assert
- (<= cell_9_9 9))
+ (or (= cell_9_9 C1) (= cell_9_9 C2) (= cell_9_9 C3) (= cell_9_9 C4) (= cell_9_9 C5) (= cell_9_9 C6) (= cell_9_9 C7) (= cell_9_9 C8) (= cell_9_9 C9)))
 (assert
  (and (distinct cell_1_1 cell_1_2 cell_1_3 cell_1_4 cell_1_5 cell_1_6 cell_1_7 cell_1_8 cell_1_9) true))
 (assert
@@ -459,1097 +308,1604 @@
  (and (distinct cell_7_4 cell_7_5 cell_7_6 cell_8_4 cell_8_5 cell_8_6 cell_9_4 cell_9_5 cell_9_6) true))
 (assert
  (and (distinct cell_7_7 cell_7_8 cell_7_9 cell_8_7 cell_8_8 cell_8_9 cell_9_7 cell_9_8 cell_9_9) true))
-(assert (>= cell_1_1 1))
-(assert (<= cell_1_1 9))
-(assert (>= cell_2_1 1))
-(assert (<= cell_2_1 9))
-(assert (>= cell_3_1 1))
-(assert (<= cell_3_1 9))
-(assert (>= cell_4_1 1))
-(assert (<= cell_4_1 9))
-(assert (>= cell_5_1 1))
-(assert (<= cell_5_1 9))
-(assert (>= cell_6_1 1))
-(assert (<= cell_6_1 9))
-(assert (>= cell_7_1 1))
-(assert (<= cell_7_1 9))
-(assert (>= cell_8_1 1))
-(assert (<= cell_8_1 9))
-(assert (>= cell_9_1 1))
-(assert (<= cell_9_1 9))
-(assert (>= cell_1_2 1))
-(assert (<= cell_1_2 9))
-(assert (>= cell_2_2 1))
-(assert (<= cell_2_2 9))
-(assert (>= cell_3_2 1))
-(assert (<= cell_3_2 9))
-(assert (>= cell_4_2 1))
-(assert (<= cell_4_2 9))
-(assert (>= cell_5_2 1))
-(assert (<= cell_5_2 9))
-(assert (>= cell_6_2 1))
-(assert (<= cell_6_2 9))
-(assert (>= cell_7_2 1))
-(assert (<= cell_7_2 9))
-(assert (>= cell_8_2 1))
-(assert (<= cell_8_2 9))
-(assert (>= cell_9_2 1))
-(assert (<= cell_9_2 9))
-(assert (>= cell_1_3 1))
-(assert (<= cell_1_3 9))
-(assert (>= cell_2_3 1))
-(assert (<= cell_2_3 9))
-(assert (>= cell_3_3 1))
-(assert (<= cell_3_3 9))
-(assert (>= cell_4_3 1))
-(assert (<= cell_4_3 9))
-(assert (>= cell_5_3 1))
-(assert (<= cell_5_3 9))
-(assert (>= cell_6_3 1))
-(assert (<= cell_6_3 9))
-(assert (>= cell_7_3 1))
-(assert (<= cell_7_3 9))
-(assert (>= cell_8_3 1))
-(assert (<= cell_8_3 9))
-(assert (>= cell_9_3 1))
-(assert (<= cell_9_3 9))
-(assert (>= cell_1_4 1))
-(assert (<= cell_1_4 9))
-(assert (>= cell_2_4 1))
-(assert (<= cell_2_4 9))
-(assert (>= cell_3_4 1))
-(assert (<= cell_3_4 9))
-(assert (>= cell_4_4 1))
-(assert (<= cell_4_4 9))
-(assert (>= cell_5_4 1))
-(assert (<= cell_5_4 9))
-(assert (>= cell_6_4 1))
-(assert (<= cell_6_4 9))
-(assert (>= cell_7_4 1))
-(assert (<= cell_7_4 9))
-(assert (>= cell_8_4 1))
-(assert (<= cell_8_4 9))
-(assert (>= cell_9_4 1))
-(assert (<= cell_9_4 9))
-(assert (>= cell_1_5 1))
-(assert (<= cell_1_5 9))
-(assert (>= cell_2_5 1))
-(assert (<= cell_2_5 9))
-(assert (>= cell_3_5 1))
-(assert (<= cell_3_5 9))
-(assert (>= cell_4_5 1))
-(assert (<= cell_4_5 9))
-(assert (>= cell_5_5 1))
-(assert (<= cell_5_5 9))
-(assert (>= cell_6_5 1))
-(assert (<= cell_6_5 9))
-(assert (>= cell_7_5 1))
-(assert (<= cell_7_5 9))
-(assert (>= cell_8_5 1))
-(assert (<= cell_8_5 9))
-(assert (>= cell_9_5 1))
-(assert (<= cell_9_5 9))
-(assert (>= cell_1_6 1))
-(assert (<= cell_1_6 9))
-(assert (>= cell_2_6 1))
-(assert (<= cell_2_6 9))
-(assert (>= cell_3_6 1))
-(assert (<= cell_3_6 9))
-(assert (>= cell_4_6 1))
-(assert (<= cell_4_6 9))
-(assert (>= cell_5_6 1))
-(assert (<= cell_5_6 9))
-(assert (>= cell_6_6 1))
-(assert (<= cell_6_6 9))
-(assert (>= cell_7_6 1))
-(assert (<= cell_7_6 9))
-(assert (>= cell_8_6 1))
-(assert (<= cell_8_6 9))
-(assert (>= cell_9_6 1))
-(assert (<= cell_9_6 9))
-(assert (>= cell_1_7 1))
-(assert (<= cell_1_7 9))
-(assert (>= cell_2_7 1))
-(assert (<= cell_2_7 9))
-(assert (>= cell_3_7 1))
-(assert (<= cell_3_7 9))
-(assert (>= cell_4_7 1))
-(assert (<= cell_4_7 9))
-(assert (>= cell_5_7 1))
-(assert (<= cell_5_7 9))
-(assert (>= cell_6_7 1))
-(assert (<= cell_6_7 9))
-(assert (>= cell_7_7 1))
-(assert (<= cell_7_7 9))
-(assert (>= cell_8_7 1))
-(assert (<= cell_8_7 9))
-(assert (>= cell_9_7 1))
-(assert (<= cell_9_7 9))
-(assert (>= cell_1_8 1))
-(assert (<= cell_1_8 9))
-(assert (>= cell_2_8 1))
-(assert (<= cell_2_8 9))
-(assert (>= cell_3_8 1))
-(assert (<= cell_3_8 9))
-(assert (>= cell_4_8 1))
-(assert (<= cell_4_8 9))
-(assert (>= cell_5_8 1))
-(assert (<= cell_5_8 9))
-(assert (>= cell_6_8 1))
-(assert (<= cell_6_8 9))
-(assert (>= cell_7_8 1))
-(assert (<= cell_7_8 9))
-(assert (>= cell_8_8 1))
-(assert (<= cell_8_8 9))
-(assert (>= cell_9_8 1))
-(assert (<= cell_9_8 9))
-(assert (>= cell_1_9 1))
-(assert (<= cell_1_9 9))
-(assert (>= cell_2_9 1))
-(assert (<= cell_2_9 9))
-(assert (>= cell_3_9 1))
-(assert (<= cell_3_9 9))
-(assert (>= cell_4_9 1))
-(assert (<= cell_4_9 9))
-(assert (>= cell_5_9 1))
-(assert (<= cell_5_9 9))
-(assert (>= cell_6_9 1))
-(assert (<= cell_6_9 9))
-(assert (>= cell_7_9 1))
-(assert (<= cell_7_9 9))
-(assert (>= cell_8_9 1))
-(assert (<= cell_8_9 9))
-(assert (>= cell_9_9 1))
-(assert (<= cell_9_9 9))
-(assert (distinct cell_1_1
-          cell_1_2
-          cell_1_3
-          cell_1_4
-          cell_1_5
-          cell_1_6
-          cell_1_7
-          cell_1_8
-          cell_1_9))
-(assert (distinct cell_2_1
-          cell_2_2
-          cell_2_3
-          cell_2_4
-          cell_2_5
-          cell_2_6
-          cell_2_7
-          cell_2_8
-          cell_2_9))
-(assert (distinct cell_3_1
-          cell_3_2
-          cell_3_3
-          cell_3_4
-          cell_3_5
-          cell_3_6
-          cell_3_7
-          cell_3_8
-          cell_3_9))
-(assert (distinct cell_4_1
-          cell_4_2
-          cell_4_3
-          cell_4_4
-          cell_4_5
-          cell_4_6
-          cell_4_7
-          cell_4_8
-          cell_4_9))
-(assert (distinct cell_5_1
-          cell_5_2
-          cell_5_3
-          cell_5_4
-          cell_5_5
-          cell_5_6
-          cell_5_7
-          cell_5_8
-          cell_5_9))
-(assert (distinct cell_6_1
-          cell_6_2
-          cell_6_3
-          cell_6_4
-          cell_6_5
-          cell_6_6
-          cell_6_7
-          cell_6_8
-          cell_6_9))
-(assert (distinct cell_7_1
-          cell_7_2
-          cell_7_3
-          cell_7_4
-          cell_7_5
-          cell_7_6
-          cell_7_7
-          cell_7_8
-          cell_7_9))
-(assert (distinct cell_8_1
-          cell_8_2
-          cell_8_3
-          cell_8_4
-          cell_8_5
-          cell_8_6
-          cell_8_7
-          cell_8_8
-          cell_8_9))
-(assert (distinct cell_9_1
-          cell_9_2
-          cell_9_3
-          cell_9_4
-          cell_9_5
-          cell_9_6
-          cell_9_7
-          cell_9_8
-          cell_9_9))
-(assert (distinct cell_1_1
-          cell_2_1
-          cell_3_1
-          cell_4_1
-          cell_5_1
-          cell_6_1
-          cell_7_1
-          cell_8_1
-          cell_9_1))
-(assert (distinct cell_1_2
-          cell_2_2
-          cell_3_2
-          cell_4_2
-          cell_5_2
-          cell_6_2
-          cell_7_2
-          cell_8_2
-          cell_9_2))
-(assert (distinct cell_1_3
-          cell_2_3
-          cell_3_3
-          cell_4_3
-          cell_5_3
-          cell_6_3
-          cell_7_3
-          cell_8_3
-          cell_9_3))
-(assert (distinct cell_1_4
-          cell_2_4
-          cell_3_4
-          cell_4_4
-          cell_5_4
-          cell_6_4
-          cell_7_4
-          cell_8_4
-          cell_9_4))
-(assert (distinct cell_1_5
-          cell_2_5
-          cell_3_5
-          cell_4_5
-          cell_5_5
-          cell_6_5
-          cell_7_5
-          cell_8_5
-          cell_9_5))
-(assert (distinct cell_1_6
-          cell_2_6
-          cell_3_6
-          cell_4_6
-          cell_5_6
-          cell_6_6
-          cell_7_6
-          cell_8_6
-          cell_9_6))
-(assert (distinct cell_1_7
-          cell_2_7
-          cell_3_7
-          cell_4_7
-          cell_5_7
-          cell_6_7
-          cell_7_7
-          cell_8_7
-          cell_9_7))
-(assert (distinct cell_1_8
-          cell_2_8
-          cell_3_8
-          cell_4_8
-          cell_5_8
-          cell_6_8
-          cell_7_8
-          cell_8_8
-          cell_9_8))
-(assert (distinct cell_1_9
-          cell_2_9
-          cell_3_9
-          cell_4_9
-          cell_5_9
-          cell_6_9
-          cell_7_9
-          cell_8_9
-          cell_9_9))
-(assert (distinct cell_1_1
-          cell_1_2
-          cell_1_3
-          cell_2_1
-          cell_2_2
-          cell_2_3
-          cell_3_1
-          cell_3_2
-          cell_3_3))
-(assert (distinct cell_1_4
-          cell_1_5
-          cell_1_6
-          cell_2_4
-          cell_2_5
-          cell_2_6
-          cell_3_4
-          cell_3_5
-          cell_3_6))
-(assert (distinct cell_1_7
-          cell_1_8
-          cell_1_9
-          cell_2_7
-          cell_2_8
-          cell_2_9
-          cell_3_7
-          cell_3_8
-          cell_3_9))
-(assert (distinct cell_4_1
-          cell_4_2
-          cell_4_3
-          cell_5_1
-          cell_5_2
-          cell_5_3
-          cell_6_1
-          cell_6_2
-          cell_6_3))
-(assert (distinct cell_4_4
-          cell_4_5
-          cell_4_6
-          cell_5_4
-          cell_5_5
-          cell_5_6
-          cell_6_4
-          cell_6_5
-          cell_6_6))
-(assert (distinct cell_4_7
-          cell_4_8
-          cell_4_9
-          cell_5_7
-          cell_5_8
-          cell_5_9
-          cell_6_7
-          cell_6_8
-          cell_6_9))
-(assert (distinct cell_7_1
-          cell_7_2
-          cell_7_3
-          cell_8_1
-          cell_8_2
-          cell_8_3
-          cell_9_1
-          cell_9_2
-          cell_9_3))
-(assert (distinct cell_7_4
-          cell_7_5
-          cell_7_6
-          cell_8_4
-          cell_8_5
-          cell_8_6
-          cell_9_4
-          cell_9_5
-          cell_9_6))
-(assert (distinct cell_7_7
-          cell_7_8
-          cell_7_9
-          cell_8_7
-          cell_8_8
-          cell_8_9
-          cell_9_7
-          cell_9_8
-          cell_9_9))
-(assert (= cell_1_1 8))
-(assert (= cell_1_2 2))
-(assert (= cell_1_3 1))
-(assert (= cell_1_4 7))
-(assert (= cell_1_5 5))
-(assert (= cell_1_6 6))
-(assert (= cell_1_7 3))
-(assert (= cell_1_8 4))
-(assert (= cell_1_9 9))
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: sat
-(assert (= cell_2_1 6))
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: sat
-(assert (= cell_2_2 3))
-(check-sat)
-; Result: sat
-(assert (= cell_2_3 4))
-(check-sat)
-; Result: sat
-(assert (= cell_2_4 9))
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: sat
-(assert (= cell_2_5 2))
-(check-sat)
-; Result: sat
-(assert (= cell_2_6 1))
-(check-sat)
-; Result: unsat
-(check-sat)
-; Result: sat
-(assert (= cell_2_7 8))
-(check-sat)
-; Result: unsat
-(check-sat)
+(assert (= cell_1_1 C8))
+(assert (= cell_1_2 C2))
+(assert (= cell_1_3 C1))
+(assert (= cell_1_4 C7))
+(assert (= cell_1_5 C5))
+(assert (= cell_1_6 C6))
+(assert (= cell_1_7 C3))
+(assert (= cell_1_8 C4))
+(assert (= cell_1_9 C9))
+(push 1)
+(assert (= cell_2_1 C2))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_1 C6))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_1 C6))
+(push 1)
+(assert (= cell_2_2 C8))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_2 C3))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_2 C3))
+(push 1)
+(assert (= cell_2_3 C4))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_3 C4))
+(push 1)
+(assert (= cell_2_4 C9))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_4 C9))
+(push 1)
+(assert (= cell_2_5 C5))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_5 C4))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_5 C6))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_5 C2))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_5 C2))
+(push 1)
+(assert (= cell_2_6 C1))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_6 C1))
+(push 1)
+(assert (= cell_2_7 C2))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_7 C8))
+(check-sat)
+; Result: sat
+(pop 1)
+(assert (= cell_2_7 C8))
+(push 1)
+(assert (= cell_2_8 C6))
+(check-sat)
+; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_8 C2))
+(check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_8 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_2_8 5))
+(pop 1)
+(assert (= cell_2_8 C5))
+(push 1)
+(assert (= cell_2_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_9 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_9 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_2_9 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_2_9 7))
+(pop 1)
+(assert (= cell_2_9 C7))
+(push 1)
+(assert (= cell_3_1 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_1 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_1 7))
+(pop 1)
+(assert (= cell_3_1 C7))
+(push 1)
+(assert (= cell_3_2 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_2 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_2 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_2 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_2 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_2 5))
+(pop 1)
+(assert (= cell_3_2 C5))
+(push 1)
+(assert (= cell_3_3 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_3 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_3 9))
+(pop 1)
+(assert (= cell_3_3 C9))
+(push 1)
+(assert (= cell_3_4 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_4 8))
+(pop 1)
+(assert (= cell_3_4 C8))
+(push 1)
+(assert (= cell_3_5 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_5 3))
+(pop 1)
+(assert (= cell_3_5 C3))
+(push 1)
+(assert (= cell_3_6 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_6 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_6 4))
+(pop 1)
+(assert (= cell_3_6 C4))
+(push 1)
+(assert (= cell_3_7 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_7 6))
+(pop 1)
+(assert (= cell_3_7 C6))
+(push 1)
+(assert (= cell_3_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_8 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_8 2))
+(pop 1)
+(assert (= cell_3_8 C2))
+(push 1)
+(assert (= cell_3_9 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_3_9 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_3_9 1))
+(pop 1)
+(assert (= cell_3_9 C1))
+(push 1)
+(assert (= cell_4_1 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_1 9))
+(pop 1)
+(assert (= cell_4_1 C9))
+(push 1)
+(assert (= cell_4_2 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_2 1))
+(pop 1)
+(assert (= cell_4_2 C1))
+(push 1)
+(assert (= cell_4_3 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_3 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_3 2))
+(pop 1)
+(assert (= cell_4_3 C2))
+(push 1)
+(assert (= cell_4_4 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_4 6))
+(pop 1)
+(assert (= cell_4_4 C6))
+(push 1)
+(assert (= cell_4_5 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_5 7))
+(pop 1)
+(assert (= cell_4_5 C7))
+(push 1)
+(assert (= cell_4_6 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_6 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_6 8))
+(pop 1)
+(assert (= cell_4_6 C8))
+(push 1)
+(assert (= cell_4_7 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_7 5))
+(pop 1)
+(assert (= cell_4_7 C5))
+(push 1)
+(assert (= cell_4_8 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_8 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_8 3))
+(pop 1)
+(assert (= cell_4_8 C3))
+(push 1)
+(assert (= cell_4_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_4_9 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_4_9 4))
+(pop 1)
+(assert (= cell_4_9 C4))
+(push 1)
+(assert (= cell_5_1 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_1 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_1 3))
+(pop 1)
+(assert (= cell_5_1 C3))
+(push 1)
+(assert (= cell_5_2 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_2 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_2 8))
+(pop 1)
+(assert (= cell_5_2 C8))
+(push 1)
+(assert (= cell_5_3 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_3 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_3 7))
+(pop 1)
+(assert (= cell_5_3 C7))
+(push 1)
+(assert (= cell_5_4 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_4 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_4 5))
+(pop 1)
+(assert (= cell_5_4 C5))
+(push 1)
+(assert (= cell_5_5 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_5 4))
+(pop 1)
+(assert (= cell_5_5 C4))
+(push 1)
+(assert (= cell_5_6 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_6 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_6 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_6 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_6 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_6 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_6 9))
+(pop 1)
+(assert (= cell_5_6 C9))
+(push 1)
+(assert (= cell_5_7 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_7 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_7 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_7 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_7 1))
+(pop 1)
+(assert (= cell_5_7 C1))
+(push 1)
+(assert (= cell_5_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_8 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_8 6))
+(pop 1)
+(assert (= cell_5_8 C6))
+(push 1)
+(assert (= cell_5_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_9 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_9 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_9 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_5_9 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_5_9 2))
+(pop 1)
+(assert (= cell_5_9 C2))
+(push 1)
+(assert (= cell_6_1 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_1 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_1 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_1 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_1 5))
+(pop 1)
+(assert (= cell_6_1 C5))
+(push 1)
+(assert (= cell_6_2 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_2 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_2 4))
+(pop 1)
+(assert (= cell_6_2 C4))
+(push 1)
+(assert (= cell_6_3 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_3 6))
+(pop 1)
+(assert (= cell_6_3 C6))
+(push 1)
+(assert (= cell_6_4 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_4 2))
+(pop 1)
+(assert (= cell_6_4 C2))
+(push 1)
+(assert (= cell_6_5 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_5 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_5 1))
+(pop 1)
+(assert (= cell_6_5 C1))
+(push 1)
+(assert (= cell_6_6 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_6 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_6 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_6 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_6 3))
+(pop 1)
+(assert (= cell_6_6 C3))
+(push 1)
+(assert (= cell_6_7 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_7 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_7 7))
+(pop 1)
+(assert (= cell_6_7 C7))
+(push 1)
+(assert (= cell_6_8 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_8 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_8 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_8 9))
+(pop 1)
+(assert (= cell_6_8 C9))
+(push 1)
+(assert (= cell_6_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_6_9 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_6_9 8))
+(pop 1)
+(assert (= cell_6_9 C8))
+(push 1)
+(assert (= cell_7_1 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_1 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_1 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_1 2))
+(pop 1)
+(assert (= cell_7_1 C2))
+(push 1)
+(assert (= cell_7_2 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_2 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_2 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_2 7))
+(pop 1)
+(assert (= cell_7_2 C7))
+(push 1)
+(assert (= cell_7_3 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_3 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_3 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_3 3))
+(pop 1)
+(assert (= cell_7_3 C3))
+(push 1)
+(assert (= cell_7_4 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_4 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_4 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_4 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_4 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_4 4))
+(pop 1)
+(assert (= cell_7_4 C4))
+(push 1)
+(assert (= cell_7_5 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_5 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_5 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_5 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_5 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_5 8))
+(pop 1)
+(assert (= cell_7_5 C8))
+(push 1)
+(assert (= cell_7_6 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_6 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_6 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_6 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_6 5))
+(pop 1)
+(assert (= cell_7_6 C5))
+(push 1)
+(assert (= cell_7_7 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_7 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_7 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_7 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_7 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_7 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_7 9))
+(pop 1)
+(assert (= cell_7_7 C9))
+(push 1)
+(assert (= cell_7_8 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_8 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_8 1))
+(pop 1)
+(assert (= cell_7_8 C1))
+(push 1)
+(assert (= cell_7_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_7_9 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_7_9 6))
+(pop 1)
+(assert (= cell_7_9 C6))
+(push 1)
+(assert (= cell_8_1 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_1 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_1 1))
+(pop 1)
+(assert (= cell_8_1 C1))
+(push 1)
+(assert (= cell_8_2 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_2 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_2 6))
+(pop 1)
+(assert (= cell_8_2 C6))
+(push 1)
+(assert (= cell_8_3 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_3 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_3 8))
+(pop 1)
+(assert (= cell_8_3 C8))
+(push 1)
+(assert (= cell_8_4 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_4 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_4 3))
+(pop 1)
+(assert (= cell_8_4 C3))
+(push 1)
+(assert (= cell_8_5 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_5 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_5 9))
+(pop 1)
+(assert (= cell_8_5 C9))
+(push 1)
+(assert (= cell_8_6 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_6 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_6 2))
+(pop 1)
+(assert (= cell_8_6 C2))
+(push 1)
+(assert (= cell_8_7 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_7 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_7 4))
+(pop 1)
+(assert (= cell_8_7 C4))
+(push 1)
+(assert (= cell_8_8 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_8 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_8 7))
+(pop 1)
+(assert (= cell_8_8 C7))
+(push 1)
+(assert (= cell_8_9 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_9 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_8_9 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_8_9 5))
+(pop 1)
+(assert (= cell_8_9 C5))
+(push 1)
+(assert (= cell_9_1 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_1 C4))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_1 4))
+(pop 1)
+(assert (= cell_9_1 C4))
+(push 1)
+(assert (= cell_9_2 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_2 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_2 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_2 C9))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_2 9))
+(pop 1)
+(assert (= cell_9_2 C9))
+(push 1)
+(assert (= cell_9_3 C5))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_3 5))
+(pop 1)
+(assert (= cell_9_3 C5))
+(push 1)
+(assert (= cell_9_4 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_4 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_4 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_4 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_4 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_4 C1))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_4 1))
+(pop 1)
+(assert (= cell_9_4 C1))
+(push 1)
+(assert (= cell_9_5 C3))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_5 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_5 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_5 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_5 C6))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_5 6))
+(pop 1)
+(assert (= cell_9_5 C6))
+(push 1)
+(assert (= cell_9_6 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_6 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_6 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_6 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_6 C7))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_6 7))
+(pop 1)
+(assert (= cell_9_6 C7))
+(push 1)
+(assert (= cell_9_7 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_7 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_7 C2))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_7 2))
+(pop 1)
+(assert (= cell_9_7 C2))
+(push 1)
+(assert (= cell_9_8 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_8 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_8 C8))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_8 8))
+(pop 1)
+(assert (= cell_9_8 C8))
+(push 1)
+(assert (= cell_9_9 C9))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C6))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C2))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C8))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C7))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C1))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C4))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C5))
 (check-sat)
 ; Result: unsat
+(pop 1)
+(push 1)
+(assert (= cell_9_9 C3))
 (check-sat)
 ; Result: sat
-(assert (= cell_9_9 3))
+(pop 1)
+(assert (= cell_9_9 C3))

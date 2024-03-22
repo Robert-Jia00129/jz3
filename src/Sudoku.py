@@ -36,12 +36,22 @@ class Solver2SMT(z3.Solver):
 
     def check(self, *args, **kwargs):
         if self._start_recording:
-            self._history.append(("check", args))
-            result = super().check(*args, **kwargs)
-            self._history.append(("result", result))
+            if args:
+                for arg in args:
+                # Format the args in SMT-LIB syntax
+                    self._history.append(("push", ""))
+                    self._history.append(("add", str(arg.sexpr())))
+                    self._history.append(("check", ""))
+                    result = super().check(*args)
+                    self._history.append(("result", result))
+                    self._history.append(("pop", ""))
+            else:
+                self._history.append(("check", ""))
+                result = super().check(*args)
+                self._history.append(("result", result))
             return result
         else:
-            return super().check(*args, **kwargs)
+            return super().check(*args)
 
     def start_recording(self):
         self._start_recording = True
@@ -52,7 +62,7 @@ class Solver2SMT(z3.Solver):
 
     def generate_smtlib(self, filename):
         with open(filename, "w") as file:
-            file.write(f"(set-logic QF_LIA)")
+            file.write(f"(set-logic QF_LIA)\n")
             for operation in self._history:
                 op, args = operation
                 if op == "initial_state":
@@ -62,7 +72,7 @@ class Solver2SMT(z3.Solver):
                 elif op in ["push", "pop"]:
                     file.write(f"({op} 1)\n")
                 elif op == "check":
-                    file.write(f"(check-sat)\n")
+                    file.write("(check-sat)\n")
                 elif op == "result":
                     file.write(f"; Result: {args}\n")
 
@@ -131,15 +141,16 @@ class Sudoku:
 
         # Create variables
         if self._distinctdigits:
-            self._constants = [z3.Bool(f"C{i}") for i in range(1, 10)]
-            self._grid = [[[z3.Bool(f"cell_{r+1}_{c+1}_C{num+1}") for num in range(9)] for c in range(9)] for r in range(9)]
+            self._digit_sort = z3.DeclareSort("Digit")
+            self._constants = [z3.Const(f"C{i}", self._digit_sort) for i in range(1, 10)]
+            self._grid = [[z3.Const(f"cell_{r+1}_{c+1}", self._digit_sort) for c in range(9)] for r in range(9)]
 
         else:
-            self._constants = [i for i in range(10)]
+            self._constants = [i for i in range(1,10)]
             if not no_num:
                 self._grid = [[z3.Int(f"cell_{r+1}_{c+1}") for c in range(9)] for r in range(9)]
             else:
-                self._grid = [[[z3.Bool(f"cell_{r+1}_{c+1}_{num+1}") for num in range(9)]
+                self._grid = [[[z3.Const(f"cell_{r+1}_{c+1}_{num+1}") for num in range(9)]
                                for c in range(9)] for r in range(9)]
 
         assert (len(sudoku_array) == 81), f"Invalid sudoku string provided! length:{len(sudoku_array)}"
@@ -164,7 +175,7 @@ class Sudoku:
                     self._nums[r][c] = int(x)
 
     def load_constraints(self):
-        digits = [self._grid[r][c] for c in range(9) for r in range(9)]  # digit
+        cells = [self._grid[r][c] for c in range(9) for r in range(9)]  # each grid cell
         rows = [self._grid[r] for r in range(9)]  # row 1-9
         cols = [[self._grid[r][c] for r in range(9)] for c in range(9)]  # col 1-9
         offset = list(itertools.product(range(0, 3), range(0, 3)))  # box 1st -9th
@@ -175,7 +186,11 @@ class Sudoku:
                 if self._nums[r][c] != 0:
                     if self._no_num:
                         self._solver.add(self._grid[r][c][self._nums[r][c] - 1])
-                    else:
+                    #     ,conditional = self._no_num TODO
+                    elif self._distinctdigits:
+                        self._solver.add(self._grid[r][c] == self._constants[self._nums[r][c] - 1])
+                        # , conditional = not (self._no_num) & & self._distinctdigits
+                    else: # 1-9 number
                         self._solver.add(self._grid[r][c] == int(self._nums[r][c]))
 
         for r in range(0, 9, 3):
@@ -196,14 +211,16 @@ class Sudoku:
             [self._solver.add(z3.PbEq([(box[k][j], 1) for k in range(9)], 1))
              for j in range(9) for box in boxes]  # box
         else:  # numbers  2D grid
-            # Restrict digits in between 1-9
-            for digit in digits:
-                # TODO this, and we could maybe also improve this with PBEQ
+            # Restrict cells in between 1-9
+            for cell in cells:
+                # TODO @sj we could maybe also improve this with PBEQ,
+                #  or we could just do assignment like this instead of the commented out way
                 # if self._distinctdigits:
                 #     self._solver.add(self._solver.Or(digit == 1, digit == 2)...)
                 # else:
-                    self._solver.add(digit >= 1) # ==1 ==2 ==3 ==4 ....
-                    self._solver.add(digit <= 9)  # Digit
+                self._solver.add(z3.Or([cell==c for c in self._constants]))
+                    # self._solver.add(digit >= 1) # ==1 ==2 ==3 ==4 ....
+                    # self._solver.add(digit <= 9)  # Digit
             if self._distinct:  # distinct, numbers 2D grid
                 [self._solver.add(z3.Distinct(row)) for row in rows]  # rows
                 [self._solver.add(z3.Distinct(row)) for row in cols]  # cols
@@ -236,6 +253,8 @@ class Sudoku:
                 else:
                     self._solver.add(z3.And(
                         [z3.PbLe([(digit == k, 1) for digit in arg], 1) for arg in argyle_hints for k in range(9)]))
+        self._solver.start_recording()
+
 
     def new_solver(self):
         """
@@ -246,7 +265,7 @@ class Sudoku:
         :return:
         """
         s_new = Sudoku([c for r in self._nums for c in r], self._classic, False,
-                       self._per_col, True, self._prefill,seed=4321) # @sj*** Shoud this be random???
+                       self._per_col, True, self._prefill,seed=4321)
         s_new._timeout = 0
         s_new._solver.set("timeout", 0)
         s_new.load_constraints()
@@ -255,7 +274,7 @@ class Sudoku:
 
     def check_condition(self, i, j, tryVal):
         start = time.time()
-        res = self._solver.check(self._grid[i][j][tryVal - 1] if self._no_num else self._grid[i][j] == int(tryVal))
+        res = self._solver.check(self._grid[i][j][tryVal - 1] if self._no_num else self._grid[i][j] == self._constants[tryVal-1])
         end = time.time()
         if self._timeout == 0: return res
         if end - start < (self._timeout - 100) / 1000 and res == z3.unknown:
@@ -285,6 +304,7 @@ class Sudoku:
             if condition == z3.unknown:
                 raise f"Timeout happened twice when checking if {i} {j} {test_num} is removable"
             else:
+
                 if self._verbose:
                     print(f'unsolvable problem checking removable was {condition} for ({i},{j}) is {test_num}')
                 self.write_to_smt_and_sudoku_file((i, j), test_num, condition)
@@ -293,7 +313,7 @@ class Sudoku:
 
     def check_not_removable(self, i, j, tryVal):
         res = self._solver.check(
-            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != int(tryVal))
+            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal-1])
         return res
 
     def add_constaint(self, i, j, tryVal):
@@ -306,7 +326,7 @@ class Sudoku:
         self._solver_operations.append(("assert", str(constraint)))
 
     def add_not_equal_constraint(self, i, j, tryVal):
-        self._solver.add(self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != int(tryVal))
+        self._solver.add(self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal-1])
 
     def gen_solved_sudoku(self):
         """
@@ -335,11 +355,13 @@ class Sudoku:
                         tryVal = x.pop()
                         check = self.check_condition(i, j, tryVal)
                     while check != z3.sat:
+                        if check is None:
+                            raise "ERROR, check is not assigned properly"
                         if check == z3.unknown:
                             s_new = self.new_solver()
                             check = s_new.check_condition(i, j, tryVal)
 
-                            # Record to log path *********
+                            # Record to log path
                             if self._hard_smt_logPath:
                                 self.write_to_smt_and_sudoku_file((i, j), tryVal, check)
                             else:
@@ -361,7 +383,7 @@ class Sudoku:
                     if self._no_num:
                         self._solver.add(self._grid[i][j][tryVal - 1])
                     else:
-                        self._solver.add(self._grid[i][j] == tryVal)
+                        self._solver.add(self._grid[i][j] == self._constants[tryVal-1])
 
                 if self._verbose:
                     print(f'Finished with row {i} and filled \n {self._nums[i]}')
@@ -382,7 +404,6 @@ class Sudoku:
                 else:
                     cols = [i for i in range(9)]
                     for r in range(9):
-
                         random.shuffle(cols)
                         for c in cols:
                             # prefill num = 1s
@@ -431,18 +452,16 @@ class Sudoku:
         return self._nums, self._penalty
 
     def solve_and_generate_smt2(self, output_file):
-        self.load_constraints()
-        self._solver.start_recording()
 
         nums, penalty = self.gen_solved_sudoku()
 
-        # if nums is not None:
-        #     print("Sudoku solved successfully!")
-        #     print("Solution:")
-        #     for row in nums:
-        #         print(row)
-        # else:
-        #     print("Sudoku has no solution.")
+        if nums is not None:
+            print("Sudoku solved successfully!")
+            print("Solution:")
+            for row in nums:
+                print(row)
+        else:
+            print("Sudoku has no solution.")
 
         self._solver.generate_smtlib(output_file)
         print(f"SMT2 file generated: {output_file}")
@@ -724,7 +743,7 @@ if __name__ == "__main__":
     # store_holes = np.load('solved_sudoku.npy')
     # ret_holes_time = generate_puzzle(store_holes, True, True, False, False)
     empty_list = [0 for i in range(9) for j in range(9)]
-    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True,seed=1234)
+    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True,seed=1234,distinct_digits=True)
     s.solve_and_generate_smt2("my-smt.smt2")
 
     print("Process finished")
@@ -742,5 +761,10 @@ if __name__ == "__main__":
 
 # full smt files
 # encode the numbers not as numbers, but as new constants
-# >= part distinct numbers -> add it to the contraints variations
+# >= part distinct numbers -> add it---
+# ++++++++6666666
+# 66to the contraints variations
 # smt to string mapping
+# cache
+# write own smt strings from scratch
+# break the whole function into calling smaller functions
