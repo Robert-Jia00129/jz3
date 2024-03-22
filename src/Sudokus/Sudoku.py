@@ -1,7 +1,8 @@
 import itertools
 import os.path
+from io import StringIO
 
-import z3  # if this fails, run 'python -m pip install z3-solver'
+import SMTs as z3  # if this fails, run 'python -m pip install z3-solver'
 import numpy as np
 import random
 from copy import deepcopy
@@ -61,20 +62,24 @@ class Solver2SMT(z3.Solver):
         self._history.append(("initial_state", initial_state))
 
     def generate_smtlib(self, filename):
-        with open(filename, "w") as file:
-            file.write(f"(set-logic QF_LIA)\n")
-            for operation in self._history:
-                op, args = operation
-                if op == "initial_state":
-                    file.write(args)
-                elif op == "add":
-                    file.write(f"(assert {args})\n")
-                elif op in ["push", "pop"]:
-                    file.write(f"({op} 1)\n")
-                elif op == "check":
-                    file.write("(check-sat)\n")
-                elif op == "result":
-                    file.write(f"; Result: {args}\n")
+        output = StringIO()
+        output.write(f"(set-logic QF_LIA)\n")
+        for operation in self._history:
+            op, args = operation
+            if op == "initial_state":
+                output.write(args)
+            elif op == "add":
+                output.write(f"(assert {args})\n")
+            elif op in ["push", "pop"]:
+                output.write(f"({op} 1)\n")
+            elif op == "check":
+                output.write("(check-sat)\n")
+            elif op == "result":
+                output.write(f"; Result: {args}\n")
+
+        smt_str = output.getvalue()
+        output.close()
+        return smt_str
 
 class Sudoku:
     _grid = None # Creating an empty matrix with None everywhere
@@ -89,7 +94,7 @@ class Sudoku:
     _hard_sudoku_logPath = None
 
     def __init__(self, sudoku_array: List[int], classic: bool, distinct: bool, per_col: bool, no_num: bool,
-                 prefill: bool, seed, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=True
+                 prefill: bool, seed, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=False
                  ):
         """
         Only write a logFile when a path is provided
@@ -148,9 +153,9 @@ class Sudoku:
         else:
             self._constants = [i for i in range(1,10)]
             if not no_num:
-                self._grid = [[z3.Int(f"cell_{r+1}_{c+1}") for c in range(9)] for r in range(9)]
+                self._grid = [[z3.Const(f"cell_{r+1}_{c+1}",z3.IntSort()) for c in range(9)] for r in range(9)]
             else:
-                self._grid = [[[z3.Const(f"cell_{r+1}_{c+1}_{num+1}") for num in range(9)]
+                self._grid = [[[z3.Const(f"cell_{r+1}_{c+1}_{num+1}",z3.BoolSort()) for num in range(9)]
                                for c in range(9)] for r in range(9)]
 
         assert (len(sudoku_array) == 81), f"Invalid sudoku string provided! length:{len(sudoku_array)}"
@@ -158,7 +163,7 @@ class Sudoku:
 
 
     def generate_smt2_file(self, filename):
-        self._solver.generate_smtlib(filename)
+        return self._solver.generate_smtlib(filename)
 
     def load_numbers(self, sudoku_array):
         """
@@ -463,24 +468,8 @@ class Sudoku:
         else:
             print("Sudoku has no solution.")
 
-        self._solver.generate_smtlib(output_file)
         print(f"SMT2 file generated: {output_file}")
-
-        # Generate SMT2 output using z3.Solver.to_smt2()
-        z3_smt2_output = self._solver.to_smt2()
-        z3_output_file = "z3_sudoku_solved.smt2"
-        with open(z3_output_file, "w") as file:
-            file.write(z3_smt2_output)
-        print(f"Z3 SMT2 output generated: {z3_output_file}")
-
-        # Compare the generated files
-        with open(output_file, "r") as file1, open(z3_output_file, "r") as file2:
-            content1 = file1.read()
-            content2 = file2.read()
-            if content1 == content2:
-                print("The generated SMT2 files are identical.")
-            else:
-                print("The generated SMT2 files are different.")
+        return self._solver.generate_smtlib(output_file)
 
 
     def write_to_smt_and_sudoku_file(self, pos, value, sat):
@@ -586,6 +575,7 @@ def pure_constraints(classic: bool, distinct: bool, per_col: bool, no_num: bool,
                      log_path="logFile"):
     empty_list = [0 for i in range(9) for j in range(9)]
     s = Sudoku(empty_list, classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path, seed=seed)
+    raise "This function needs additional modification to generate_smt2_file"
     s.generate_smt2_file("./output.smt2")
 
 
@@ -744,7 +734,7 @@ if __name__ == "__main__":
     # ret_holes_time = generate_puzzle(store_holes, True, True, False, False)
     empty_list = [0 for i in range(9) for j in range(9)]
     s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True,seed=1234,distinct_digits=True)
-    s.solve_and_generate_smt2("my-smt.smt2")
+    smt_str = s.solve_and_generate_smt2("my-smt.smt2")
 
     print("Process finished")
 

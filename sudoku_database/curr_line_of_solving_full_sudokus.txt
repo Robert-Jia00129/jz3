@@ -1,1 +1,1 @@
-{'../store-sudoku/classic_full_sudokus.txt': 153232, '../store-sudoku/argyle_full_sudokus.txt': 175680}
+{'../store-sudoku/classic_full_sudokus.txt': 153232, '../store-sudoku/argyle_full_sudokus.txt': 175680, '../../sudoku_database/classic_full_sudokus.txt': 5856, '../../sudoku_database/argyle_full_sudokus.txt': 5856}
