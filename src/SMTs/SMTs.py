@@ -1,6 +1,6 @@
 import z3
 
-
+# found a way to avoid these: just create a super class
 ## Functions that the classes share:
 # obj.z3():
 #   get the z3 version of the formula obj (to hand to the z3 solver)
@@ -8,6 +8,19 @@ import z3
 #   get a true/false value based on obj by looking up the variables in dict
 # obj.predicates():
 #   get the set of predicates occurring in obj
+
+
+class Expression:
+    def get_predicate_name(self):
+        """Returns the variable(s) name(s)."""
+        pass
+
+    def to_z3_expr(self):
+        """conver to z3 expression"""
+
+    def evaluate_assigned_value(self,value_dct):
+        """Assign/evaluate the variable from the value assigned in value_dct"""
+        pass
 class Bool:
     def __init__(self, name):
         self.name = name
@@ -17,6 +30,7 @@ class Bool:
         return z3.Bool(self.name)
     def compute(self, values):
         return values[self.name]
+
 class BoolVal:
     def __init__(self,value):
         self.value = value
@@ -31,6 +45,8 @@ class Const:
     ...
     def z3(self):
         return z3.Const(..)
+
+
 def true():
     return BoolVal(True)
 
@@ -75,6 +91,8 @@ class Solver:
                 if constraint.compute(modelValues):
                     s.add(assertion.z3())
             return s.check(condition.z3()) # todo: convert z3s answer to ours
+        else:
+            raise "Impossible to find any way of building constraints"
 sat = "sat"
 unsat = "unsat"
 timeout = "timeout"
