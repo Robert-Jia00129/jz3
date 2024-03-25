@@ -12,18 +12,7 @@ from abc import ABC, abstractmethod
 import z3
 
 
-class BoolVal(Expression):
-    def __init__(self, value):
-        self.value = value
 
-    def predicates(self):
-        return {}
-
-    def compute(self, _values):
-        return self.value
-
-    def z3(self):
-        return z3.BoolVal(self.value)
 
 class Expression(ABC):
     """Abstract base class for all expressions."""
@@ -43,9 +32,22 @@ class Expression(ABC):
         """return the assigned value for this variable/predicate in value_dct"""
         pass
 
+class BoolVal(Expression):
+    def __init__(self, value):
+        self.value = value
+
+    def predicates(self):
+        return {}
+
+    def compute(self, _values):
+        return self.value
+
+    def z3(self):
+        return z3.BoolVal(self.value)
+
 
 class Bool(Expression):
-    """Represents a boolean variable."""
+    """Wrapper for boolean variable."""
 
     def __init__(self, name):
         self.name = name
@@ -61,7 +63,7 @@ class Bool(Expression):
 
 
 class Int(Expression):
-    """Represents an integer variable."""
+    """Wrapper for integer variable."""
 
     def __init__(self, name):
         self.name = name
@@ -77,7 +79,7 @@ class Int(Expression):
 
 
 class Not(Expression):
-    """Represents a logical NOT operation."""
+    """Wrapper for logical NOT operation."""
 
     def __init__(self, arg):
         self.arg = arg
@@ -93,7 +95,7 @@ class Not(Expression):
 
 
 class Or(Expression):
-    """Represents a logical OR operation between multiple expressions."""
+    """Wrapper for logical OR operation between multiple expressions."""
 
     def __init__(self, *args):
         self.args = args
@@ -109,7 +111,7 @@ class Or(Expression):
 
 
 class And(Expression):
-    """Represents a logical OR operation between multiple expressions."""
+    """Wrapper for logical AND operation between multiple expressions."""
 
     def __init__(self, *args):
         self.args = args
@@ -128,7 +130,7 @@ class And(Expression):
 
 
 class Distinct(Expression):
-    """Represents a distinct constraint on a set of expressions."""
+    """...."""
 
     def __init__(self, *args):
         self.args = args
@@ -146,7 +148,7 @@ class Distinct(Expression):
 # PbEq implementation would depend on the specific requirements for pseudo-boolean equality.
 # Here's a placeholder for its structure:
 class PbEq(Expression):
-    """Placeholder for a pseudo-boolean equality operation."""
+    """...."""
 
     def __init__(self, *args, equals):
         self.args = args
@@ -165,12 +167,11 @@ class PbEq(Expression):
 
 
 class Const(Expression):
-    """Represents a constant value."""
+    """Wrapper for constant value."""
     def __init__(self, value):
         self.value = value
 
     def get_predicate_name(self):
-        # Constants do not have a variable name, return an empty set
         return set()
 
     def to_z3_expr(self):
@@ -182,14 +183,35 @@ class Const(Expression):
         return self.value
 
 
+class Eq(Expression): 
 
+    def __init__(self,expr1,expr2):
+        self.expr1 = expr1
+        self.expr2 = expr2
 
-class Const:
-    ...
+    def get_predicate_name(self):
+        return (self.expr1,self.expr2)
 
-    def z3(self):
-        pass
-        # return z3.Const(..)
+    def to_z3_expr(self):
+        return z3.eq(self.expr1,self.expr2)
+
+    def evaluate_assigned_value(self, value_dct):
+        return value_dct[self.expr1] == value_dct[self.expr2]
+
+class Implies(Expression):
+    """Represents a logical implication between two expressions."""
+    def __init__(self, premise, conclusion):
+        self.premise = premise
+        self.conclusion = conclusion
+
+    def get_predicate_name(self):
+        return self.premise.get_predicate_name(), self.conclusion.get_predicate_name()
+
+    def to_z3_expr(self):
+        return z3.Implies(self.premise.to_z3_expr(), self.conclusion.to_z3_expr())
+
+    def evaluate_assigned_value(self, value_dct):
+        return not self.premise.evaluate_assigned_value(value_dct) or self.conclusion.evaluate_assigned_value(value_dct)
 
 
 def true():
