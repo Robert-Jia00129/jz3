@@ -8,28 +8,77 @@ import z3
 #   get a true/false value based on obj by looking up the variables in dict
 # obj.predicates():
 #   get the set of predicates occurring in obj
+from abc import ABC, abstractmethod
+import z3
 
 
-class Expression:
+class Expression(ABC):
+    """Abstract base class for all expressions."""
+
+    @abstractmethod
     def get_predicate_name(self):
         """Returns the variable(s) name(s)."""
         pass
 
+    @abstractmethod
     def to_z3_expr(self):
-        """conver to z3 expression"""
-
-    def evaluate_assigned_value(self,value_dct):
-        """Assign/evaluate the variable from the value assigned in value_dct"""
+        """Convert to z3 expression."""
         pass
-class Bool:
+
+    @abstractmethod
+    def evaluate_assigned_value(self, value_dct):
+        """return the assigned value for this variable/predicate in value_dct"""
+        pass
+
+
+class Bool(Expression):
+    """Represents a boolean variable."""
+
     def __init__(self, name):
         self.name = name
-    def predicates(self):
-        return {self.name}
-    def z3(self):
+
+    def get_predicate_name(self):
+        return self.name
+
+    def to_z3_expr(self):
         return z3.Bool(self.name)
-    def compute(self, values):
-        return values[self.name]
+
+    def evaluate_assigned_value(self, value_dct):
+        return value_dct[self.name]
+
+
+class Int(Expression):
+    """Represents an integer variable."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def get_predicate_name(self):
+        return self.name
+
+    def to_z3_expr(self):
+        return z3.Int(self.name)
+
+    def evaluate_assigned_value(self, value_dct):
+        return value_dct[self.name]
+
+
+class Not(Expression):
+    """Represents a logical NOT operation."""
+
+    def __init__(self, arg):
+        self.arg = arg
+
+    def get_predicate_name(self):
+        return self.arg.get_predicate_name()
+
+    def to_z3_expr(self):
+        return z3.Not(self.arg.to_z3_expr())
+
+    def evaluate_assigned_value(self, value_dct):
+        return not self.arg.evaluate_assigned_value(value_dct)
+
+
 
 class BoolVal:
     def __init__(self,value):
