@@ -80,10 +80,9 @@ def update_mapping(mapping_file_path, grid, constraint, smt2_file_path):
     }
 
 
-def run_experiment_once(single_condition: bool, *args, total_time_per_condition=5 * 60,
-                        particular_instance_timeout=5000,
-                        start_condition: List[bool] =[],
-                        start_from_next=False,
+def run_experiment_once(single_condition: bool, *args,
+                        start_condition: List[bool] = [],
+                        start_from_next: bool = False,
                         curr_line_path: str = '../sudoku_database/curr_line_of_solving_full_sudokus.txt',
                         classic_full_path: str = '../sudoku_database/classic_full_sudokus.txt',
                         argyle_full_path: str = '../sudoku_database/argyle_full_sudokus.txt',
@@ -91,34 +90,35 @@ def run_experiment_once(single_condition: bool, *args, total_time_per_condition=
                         argyle_holes_path: str = '../sudoku_database/argyle_holes_sudokus.txt',
                         hard_sudoku_dir: str = "../../problems_instances/particular_hard_instances_records/txt_files/",
                         time_record_dir: str = '../time-record/whole_problem_time_records',
-                        hard_smt_logPath:str = '',
-                        verbose=False):
+                        hard_smt_logPath: str = '',
+                        verbose: bool = False):
     """
+    Generate full sudokus and holes sudokus under different constraints and store the time to a specific location.
 
-    :param single_condition:
-    :param args:
-    :param full_iter:
-    :param holes_iter:
-    :param total_time_per_condition:
-    :param start_condition:
-    :param end_condition:
-    :param start_from_next:
-    :param curr_line_path: paths to
-    :param classic_full_path:
-    :param argyle_full_path:
-    :param classic_holes_path:
-    :param argyle_holes_path:
-    :return:
+    Args:
+        single_condition (bool): If True, only the start_condition is used. If False, all conditions are used.
+        *args: Additional arguments passed to the function.
+        start_condition (List[bool]): The starting condition. If empty, all conditions are used.
+        start_from_next (bool): If True, starts from the next condition after start_condition.
+        curr_line_path (str): Path to the file storing the current line of solving full sudokus.
+        classic_full_path (str): Path to the file storing classic full sudokus.
+        argyle_full_path (str): Path to the file storing argyle full sudokus.
+        classic_holes_path (str): Path to the file storing classic holes sudokus.
+        argyle_holes_path (str): Path to the file storing argyle holes sudokus.
+        hard_sudoku_dir (str): Directory path for storing hard sudoku instances.
+        time_record_dir (str): Directory path for storing time records.
+        hard_smt_logPath (str): Path for storing hard SMT logs.
+        verbose (bool): If True, prints verbose output.
+
+    Returns:
+        None
     """
-    empty_grid = [0]*81
-    full_iter = 1
-    holes_iter = 1
     try:
         with open(curr_line_path, 'r') as f:
             curr_line = eval(f.readline())
     except IOError:
         curr_line = {}  # Keep track of which full sudoku to continue_reading with
-    total_solve = {}
+
     if single_condition:
         conditions = [start_condition]
     else:
@@ -127,106 +127,70 @@ def run_experiment_once(single_condition: bool, *args, total_time_per_condition=
             conditions = conditions[conditions.index(tuple(start_condition)) + start_from_next:]
 
     seed = time.time()
-    if full_iter > 0:
-        print(f'Generating full sudokus: \n'
-              f'{"-" * len(conditions)}Total Conditions: {len(conditions)}')
-        for ele in conditions:
-            exceed_time_limit = False
-            if ele[0]:
-                full_sudoku_path = classic_full_path
-                hard_sudoku_path = os.path.join(hard_sudoku_dir,'hard_classic_instances.txt')
-            else:
-                full_sudoku_path = argyle_full_path
-                hard_sudoku_path = os.path.join(hard_sudoku_dir,'hard_argyle_instance.txt')
+    print(f'Generating full sudokus: \n'
+          f'{"-" * len(conditions)}Total Conditions: {len(conditions)}')
+    for condition in conditions:
+        if condition[0]:
+            full_sudoku_path = classic_full_path
+            hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_classic_instances.txt')
+        else:
+            full_sudoku_path = argyle_full_path
+            hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_argyle_instance.txt')
 
-            condition_name = to_str(ele) + 'full_time'
-            for i in range(full_iter):
-                print('-',end="")
+        condition_name = to_str(condition) + 'full_time'
+        print('-', end="")
 
-                if condition_name not in total_solve:
-                    total_solve[condition_name] = 0
-                if total_solve[condition_name] > total_time_per_condition:
-                    # record current position
-                    exceed_time_limit = True
-                    break
-                full_time, full_penalty = Sudoku.gen_full_sudoku(*ele, hard_smt_logPath=hard_smt_logPath,
-                                                                 hard_sudoku_logPath=hard_sudoku_path,
-                                                                 store_sudoku_path=full_sudoku_path, seed=seed)
-                total_solve[condition_name] += full_time
-                with open(time_record_dir + condition_name + '.txt',
-                          'a') as f:  # if error, create ../time-record directory
-                    f.write(f'{full_time},{full_penalty}\n')
-            if exceed_time_limit:
-                print(f'{full_sudoku_path} {ele} exceeded time limit when generating full_grid')
-        print("")
-    classic_full_sudoku_path=classic_full_path
-    classic_holes_sudoku_path = classic_holes_path
-    argyle_full_sudoku_path=argyle_full_path
-    argyle_holes_sudoku_path = argyle_holes_path
-    with open(classic_full_sudoku_path,'r') as f:
-        if classic_full_sudoku_path in curr_line:
-            f.seek(curr_line[classic_full_sudoku_path])
-            classic_sudoku_lst = f.readline()[:-1]  # get rid of new line character
-            classic_hard_sudoku_path = '../../problems_instances/particular_hard_instances_records/txt_files/hard_classic_instances.txt'
-    with open(argyle_full_sudoku_path, 'r') as f:
-        if argyle_full_sudoku_path in curr_line:
-            f.seek(curr_line[argyle_full_sudoku_path])
-            argyel_sudoku_lst = f.readline()[:-1]  # get rid of new line character
-            argyle_hard_sudoku_path = '../../problems_instances/particular_hard_instances_records/txt_files/hard_argyle_instance.txt'
+        full_time, full_penalty = Sudoku.gen_full_sudoku(*condition, hard_smt_logPath=hard_smt_logPath,
+                                                         hard_sudoku_logPath=hard_sudoku_path,
+                                                         store_sudoku_path=full_sudoku_path, seed=seed)
+        with open(os.path.join(time_record_dir, condition_name + '.txt'), 'a') as f:
+            os.makedirs(time_record_dir, exist_ok=True)
+            f.write(f'{full_time},{full_penalty}\n')
 
-    if holes_iter > 0:
-        for ele in conditions:
-            enough_sudoku = True
-            if ele[0]:
-                full_sudoku_path = classic_full_path
-                holes_sudoku_path = classic_holes_path
-            else:
-                full_sudoku_path = argyle_full_path
-                holes_sudoku_path = argyle_holes_path
+    print("\nGenerating holes sudokus: \n"
+          f'{"-" * len(conditions)}Total Conditions: {len(conditions)}')
 
-            with open(full_sudoku_path, 'r') as f:
-                if full_sudoku_path in curr_line:
-                    f.seek(curr_line[full_sudoku_path])
-                condition_name = to_str(ele) + 'holes_time'
-                for i in range(holes_iter):
-                    if verbose:
-                        print(f'{i + 1}th iteration: Processing holes sudoku {condition_name}')
-                    sudoku_lst = f.readline()[:-1]  # get rid of new line character
-                    if condition_name not in total_solve:
-                        total_solve[condition_name] = 0
-                    if total_solve[condition_name] > total_time_per_condition:
-                        enough_sudoku = False
-                        break
+    with open(classic_full_path, 'r') as f:
+        if classic_full_path in curr_line:
+            f.seek(curr_line[classic_full_path])
+        classic_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+    classic_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_classic_instances.txt')
 
-                    holes_time, holes_penalty = Sudoku.gen_holes_sudoku(eval(sudoku_lst), *ele,
-                                                                        hard_smt_logPath='smt2_files/',
-                                                                        hard_sudoku_logPath=hard_sudoku_path,
-                                                                        store_sudoku_path=holes_sudoku_path, seed=seed)
-                    print(f'\tTime taken: {holes_time}')
-                    total_solve[condition_name] += holes_time
-                    with open(time_record_dir + condition_name + '.txt', 'a+') as f_holes:
-                        f_holes.write(f'{holes_time},{holes_penalty}\n')
+    with open(argyle_full_path, 'r') as f:
+        if argyle_full_path in curr_line:
+            f.seek(curr_line[argyle_full_path])
+        argyle_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+    argyle_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_argyle_instance.txt')
 
-                curr_line[full_sudoku_path] = f.tell()
-                # f.read()
-                if verbose:
-                    file_size = f.tell()
-                    print(f'{curr_line[full_sudoku_path] / file_size * 100}% of the full grid for '
-                          f'{full_sudoku_path.removesuffix("full_sudokus.txt")} {ele} is used')
-            if not enough_sudoku:
-                raise f"NOT enough sudoku when generating {ele}"
+    for condition in conditions:
+        if condition[0]:
+            sudoku_lst = classic_sudoku_lst
+            holes_sudoku_path = classic_holes_path
+            hard_sudoku_path = classic_hard_sudoku_path
+        else:
+            sudoku_lst = argyle_sudoku_lst
+            holes_sudoku_path = argyle_holes_path
+            hard_sudoku_path = argyle_hard_sudoku_path
 
-            par_dir = Path(curr_line_path).parent
-            if not os.path.exists(par_dir):
-                os.makedirs(par_dir)
-            with open(curr_line_path, 'w') as f:
-                f.truncate()
-                f.write(str(curr_line))
-        print(total_solve)
+        condition_name = to_str(condition) + 'holes_time'
+        if verbose:
+            print(f'Processing holes sudoku {condition_name}')
+        print('-', end="")
+        holes_time, holes_penalty = Sudoku.gen_holes_sudoku(eval(sudoku_lst), *condition,
+                                                            hard_smt_logPath=hard_smt_logPath,
+                                                            hard_sudoku_logPath=hard_sudoku_path,
+                                                            store_sudoku_path=holes_sudoku_path, seed=seed)
+        if verbose:
+            print(f'\tTime taken: {holes_time}')
+        with open(os.path.join(time_record_dir, condition_name + '.txt'), 'a+') as f_holes:
+            f_holes.write(f'{holes_time},{holes_penalty}\n')
 
-        # Increament both time
-    print("Process Finished")
-
+    par_dir = Path(curr_line_path).parent
+    os.makedirs(par_dir, exist_ok=True)
+    with open(curr_line_path, 'w') as f:
+        f.truncate()
+        f.write(str(curr_line))
+    print("Ran experiment once")
 
 def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
     """
@@ -429,7 +393,6 @@ if __name__ == '__main__':
 
     for i in range(1):
         run_experiment_once(False,
-                            total_time_per_condition=int(1e20),  # don't care about maximum cap for specific conditions
                             **dct
                             )
     # run_experiment(single_condition=False, full_iter=20, holes_iter=20,
