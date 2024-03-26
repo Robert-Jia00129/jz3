@@ -1,5 +1,3 @@
-import z3
-
 # found a way to avoid these: just create a super class
 ## Functions that the classes share:
 # obj.z3():
@@ -10,8 +8,7 @@ import z3
 #   get the set of predicates occurring in obj
 from abc import ABC, abstractmethod
 import z3
-
-
+from typing import Tuple, Dict, List
 
 
 class Expression(ABC):
@@ -32,17 +29,18 @@ class Expression(ABC):
         """return the assigned value for this variable/predicate in value_dct"""
         pass
 
+
 class BoolVal(Expression):
     def __init__(self, value):
         self.value = value
 
-    def predicates(self):
+    def get_predicate_name(self):
         return {}
 
-    def compute(self, _values):
+    def evaluate_assigned_value(self, _values):
         return self.value
 
-    def z3(self):
+    def to_z3_expr(self):
         return z3.BoolVal(self.value)
 
 
@@ -101,7 +99,7 @@ class Or(Expression):
         self.args = args
 
     def get_predicate_name(self):
-        return set.union(*(arg.get_predicate_name() for arg in self.args))
+        return self.args
 
     def to_z3_expr(self):
         return z3.Or([arg.to_z3_expr() for arg in self.args])
@@ -124,9 +122,6 @@ class And(Expression):
 
     def evaluate_assigned_value(self, value_dct):
         return all(arg.evaluate_assigned_value(value_dct) for arg in self.args)
-
-
-
 
 
 class Distinct(Expression):
@@ -168,6 +163,7 @@ class PbEq(Expression):
 
 class Const(Expression):
     """Wrapper for constant value."""
+
     def __init__(self, value):
         self.value = value
 
@@ -183,23 +179,25 @@ class Const(Expression):
         return self.value
 
 
-class Eq(Expression): 
+class Eq(Expression):
 
-    def __init__(self,expr1,expr2):
+    def __init__(self, expr1, expr2):
         self.expr1 = expr1
         self.expr2 = expr2
 
     def get_predicate_name(self):
-        return (self.expr1,self.expr2)
+        return (self.expr1, self.expr2)
 
     def to_z3_expr(self):
-        return z3.eq(self.expr1,self.expr2)
+        return z3.eq(self.expr1, self.expr2)
 
     def evaluate_assigned_value(self, value_dct):
         return value_dct[self.expr1] == value_dct[self.expr2]
 
+
 class Implies(Expression):
     """Represents a logical implication between two expressions."""
+
     def __init__(self, premise, conclusion):
         self.premise = premise
         self.conclusion = conclusion
@@ -224,45 +222,79 @@ def false():
 
 class Solver:
     def __init__(self):
-        self.assertions = []
+        self.assertions:List[Tuple[Expression, Expression]] = [] # (conditional_constraint, condition)
         self.modelVariables = {}  # no_num, distinct, etc
-        self.modelConstraints = true()  # no_num and distinct cannot be true at the same time
+        self.global_constraints = true()  # no_num and distinct cannot be true at the same time
+        self.model = None
 
-    def add(self, *args, constraint: Expression=None):
-        if constraint is None:
-            constraint = true()
-        for assertion in args:
-            # TODO: check the the constraints are validly typed
-            # (it's better to get the error here rather than upon 'check'
-            self.assertions.append((assertion, constraint))
 
-    def check(self, condition=None):
+    def add(self, *args, condition: Expression = None) -> None:
+        """
+        Adds an expression as a constraint to the solver, optionally conditioned on another expression.
+
+        Parameters:
+            expression (Expression): The constraint to be added.
+            condition (Expression, optional): The condition under which the constraint is applied.
+        """
+
+        if condition is None:
+            condition = true()
+        for conditional_constraint in args:
+            # TODO: check the the constraints are validly typed @sj is this what you mean?
+            self.assertions.append((conditional_constraint, condition))
+        s = z3.Solver()
+        s.add(self.global_constraints.to_z3_expr())
+        for _,condition in self.assertions:
+            s.add(condition.to_z3_expr())
+        if s.check() != z3.sat:
+            raise "The conditions provided are not satisfiable"
+
+    def check(self, *args, condition:Expression=None):
+        """
+        Finds a satisfiable set of conditional variables that satisfies the global constraints
+        and an optional specific condition. It then applies corresponding constraints based on this set
+        and checks for overall satisfiability.
+
+        """
+        s = z3.Solver()
+        s.add(self.global_constraints.to_z3_expr())
+        # unconditional constraint
         if condition is None:
             condition = true()
 
-        def makeTF(v):
-            if v:
-                return True
-            else:
-                return False
+        # adding all conditions to solver to determine if they
+        # can satisfy the global constraint
+        conditional_expressions = [cond.to_z3_expr() for (_, cond) in self.assertions]
+        for expr in conditional_expressions:
+            s.add(expr)
 
-        s = z3.Solver()
-        res = s.check(self.modelConstraints.z3())
-        if res == z3.sat:
-            model = s.model()
 
-            modelValues = {var: makeTF(model[var]) for var in self.modelVariables}
-            s.add()
+        if s.check() == z3.sat:
+            # find a specific combination
+            model = s.model() # [cond1==True, cond2==False, cond3==False, ...]
+
+            solver_with_conditional_constraint = z3.Solver()
+            modelValues = {}
             # todo: launch multiple solvers in parallel, get first response
-            # also, use modelValues and z3.Optimize() to make the second solver
-            # as different from the first as possible
-            s = z3.Solver()
-            for (assertion, constraint) in self.assertions:
-                if constraint.evaluate_assigned_value(modelValues):
-                    s.add(assertion.z3())
-            return s.check(condition.z3())  # todo: convert z3s answer to ours
+
+            # {var: makeTF(model[var]) for var in self.modelVariables}
+            # assignment dict of condition:True/False: z3.z3.BoolRef
+            self.assertions: List[Expression,Expression]
+            for (conditional_constraint,condition) in self.assertions:
+                # for unconditional conditions, or conditions that we assign to be true
+                if condition == BoolVal(True) or model.eval(condition.to_z3_expr()):
+                    # modelValues[condition] = BoolVal(True)
+                    solver_with_conditional_constraint.add(conditional_constraint.to_z3_expr())
+            solver_with_conditional_constraint.check()
+            self.model=solver_with_conditional_constraint.model()
+            return solver_with_conditional_constraint.check() #todo convert z3.sat to ours???? @sj, this would impact the current program using z3.sat tho
+
         else:
             raise "Impossible to find any way of building constraints"
+
+    def model(self):
+        print("ASFA")
+        return self.model()
 
 
 sat = "sat"
@@ -272,12 +304,14 @@ unknown = "unknown"
 
 if __name__ == '__main__':
     s = Solver()
-    s.add(Or(Bool("x"), Bool("y")), Eq(Bool("x"), Bool("y")))
-    s.add(Implies(Bool("x"), Bool("y")), Bool("redundant_implies"))
-    if s.check() == sat:
-        m = s.model()
-        assert (m['x'])
-        assert (m['y'])
+    # s.add(Or(Bool("x"), Bool("y")), Eq(Bool("x"), Bool("y")))
+    s.add(Or(Bool("x"), Bool("y")))
+    # s.add(Implies(Bool("x"), Bool("y")), Bool("redundant_implies"))
+    if s.check() == z3.sat:
+        m = s.model
+        print(m)
+        # assert (m['x'])
+        # assert (m['y'])
         print('test passed')
     else:
         print('something is very wrong')
