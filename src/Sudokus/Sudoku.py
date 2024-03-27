@@ -3,7 +3,7 @@ import os.path
 from io import StringIO
 
 # import src.SMTs.SMTs as z3  # if this fails, run 'python -m pip install z3-solver'
-import z3
+import src.SMTs.SMTs as z3
 import numpy as np
 import random
 from copy import deepcopy

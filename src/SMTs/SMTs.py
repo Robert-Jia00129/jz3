@@ -16,7 +16,7 @@ class Expression(ABC):
 
     @abstractmethod
     def get_predicate_name(self):
-        """Returns the variable(s) name(s)."""
+        """Returns the variable(s) name(s). involved in the expression"""
         pass
 
     @abstractmethod
@@ -79,11 +79,14 @@ class Int(Expression):
 class Not(Expression):
     """Wrapper for logical NOT operation."""
 
-    def __init__(self, arg):
-        self.arg = arg
+    def __init__(self, *args):
+        self.args = args
 
     def get_predicate_name(self):
-        return self.arg.get_predicate_name()
+        names = set()
+        for arg in self.args:
+            names.update(arg.get_predicate_name())
+        return names
 
     def to_z3_expr(self):
         return z3.Not(self.arg.to_z3_expr())
@@ -99,7 +102,10 @@ class Or(Expression):
         self.args = args
 
     def get_predicate_name(self):
-        return self.args
+        names = set()
+        for arg in self.args:
+            names.update(arg.get_predicate_name())
+        return names
 
     def to_z3_expr(self):
         return z3.Or([arg.to_z3_expr() for arg in self.args])
@@ -115,7 +121,10 @@ class And(Expression):
         self.args = args
 
     def get_predicate_name(self):
-        return set.union(*(arg.get_predicate_name() for arg in self.args))
+        names = set()
+        for arg in self.args:
+            names.update(arg.get_predicate_name())
+        return names
 
     def to_z3_expr(self):
         return z3.And([arg.to_z3_expr() for arg in self.args])
@@ -131,13 +140,17 @@ class Distinct(Expression):
         self.args = args
 
     def get_predicate_name(self):
-        pass
+        names = set()
+        for arg in self.args:
+            names.update(arg.get_predicate_name())
+        return names
 
     def to_z3_expr(self):
         return z3.Distinct([arg.to_z3_expr() for arg in self.args])
 
     def evaluate_assigned_value(self, value_dct):
-        pass
+        all_predicates = [arg.evaluate_assigned_value(value_dct) for arg in self.args]
+        return len(set(all_predicates)) == len(all_predicates)
 
 
 # PbEq implementation would depend on the specific requirements for pseudo-boolean equality.
@@ -145,20 +158,25 @@ class Distinct(Expression):
 class PbEq(Expression):
     """...."""
 
-    def __init__(self, *args, equals):
-        self.args = args
-        self.equals = equals
+    def __init__(self, expr_weights: List[Tuple[Expression, int]], equal_val: int):
+        self.expr_weights = expr_weights
+        self.equal_val = equal_val
+
 
     def get_predicate_name(self):
         # Implementation depends on specifics of PbEq.
-        pass
+        names = set()
+        for name,_ in self.expr_weights:
+            names.update(name.get_predicate_name())
+        return names
 
     def to_z3_expr(self):
         # Implementation depends on specifics of PbEq.
-        pass
+        return z3.PbEq(self.expr_weights,self.equal_val)
 
     def evaluate_assigned_value(self, value_dct):
-        pass
+        sum_values = sum(expr.evaluate_assigned_value(value_dct) * weight for expr, weight in self.expr_weights)
+        return sum_values==self.equal_val
 
 
 class Const(Expression):
@@ -222,11 +240,10 @@ def false():
 
 class Solver:
     def __init__(self):
-        self.assertions:List[Tuple[Expression, Expression]] = [] # (conditional_constraint, condition)
+        self.assertions: List[Tuple[Expression, Expression]] = []  # (conditional_constraint, condition)
         self.modelVariables = {}  # no_num, distinct, etc
         self.global_constraints = true()  # no_num and distinct cannot be true at the same time
         self.model = None
-
 
     def add(self, *args, condition: Expression = None) -> None:
         """
@@ -244,12 +261,12 @@ class Solver:
             self.assertions.append((conditional_constraint, condition))
         s = z3.Solver()
         s.add(self.global_constraints.to_z3_expr())
-        for _,condition in self.assertions:
+        for _, condition in self.assertions:
             s.add(condition.to_z3_expr())
         if s.check() != z3.sat:
             raise "The conditions provided are not satisfiable"
 
-    def check(self, *args, condition:Expression=None):
+    def check(self, *args, condition: Expression = None):
         """
         Finds a satisfiable set of conditional variables that satisfies the global constraints
         and an optional specific condition. It then applies corresponding constraints based on this set
@@ -268,10 +285,9 @@ class Solver:
         for expr in conditional_expressions:
             s.add(expr)
 
-
         if s.check() == z3.sat:
             # find a specific combination
-            model = s.model() # [cond1==True, cond2==False, cond3==False, ...]
+            model = s.model()  # [cond1==True, cond2==False, cond3==False, ...]
 
             solver_with_conditional_constraint = z3.Solver()
             modelValues = {}
@@ -279,15 +295,15 @@ class Solver:
 
             # {var: makeTF(model[var]) for var in self.modelVariables}
             # assignment dict of condition:True/False: z3.z3.BoolRef
-            self.assertions: List[Expression,Expression]
-            for (conditional_constraint,condition) in self.assertions:
+            self.assertions: List[Expression, Expression]
+            for (conditional_constraint, condition) in self.assertions:
                 # for unconditional conditions, or conditions that we assign to be true
                 if condition == BoolVal(True) or model.eval(condition.to_z3_expr()):
                     # modelValues[condition] = BoolVal(True)
                     solver_with_conditional_constraint.add(conditional_constraint.to_z3_expr())
             solver_with_conditional_constraint.check()
-            self.model=solver_with_conditional_constraint.model()
-            return solver_with_conditional_constraint.check() #todo convert z3.sat to ours???? @sj, this would impact the current program using z3.sat tho
+            self.model = solver_with_conditional_constraint.model()
+            return solver_with_conditional_constraint.check()  # todo convert z3.sat to ours???? @sj, this would impact the current program using z3.sat tho
 
         else:
             raise "Impossible to find any way of building constraints"
