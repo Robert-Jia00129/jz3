@@ -85,7 +85,7 @@ class Not(Expression):
     def get_predicate_name(self):
         names = set()
         for arg in self.args:
-            names.update(arg.get_predicate_name())
+            names.update(*arg.get_predicate_name())
         return names
 
     def to_z3_expr(self):
@@ -104,7 +104,7 @@ class Or(Expression):
     def get_predicate_name(self):
         names = set()
         for arg in self.args:
-            names.update(arg.get_predicate_name())
+            names.update(*arg.get_predicate_name())
         return names
 
     def to_z3_expr(self):
@@ -123,10 +123,12 @@ class And(Expression):
     def get_predicate_name(self):
         names = set()
         for arg in self.args:
-            names.update(arg.get_predicate_name())
+            names.update(*arg.get_predicate_name())
         return names
 
     def to_z3_expr(self):
+        for arg in self.args:
+            print(arg)
         return z3.And([arg.to_z3_expr() for arg in self.args])
 
     def evaluate_assigned_value(self, value_dct):
@@ -142,7 +144,7 @@ class Distinct(Expression):
     def get_predicate_name(self):
         names = set()
         for arg in self.args:
-            names.update(arg.get_predicate_name())
+            names.update(*arg.get_predicate_name())
         return names
 
     def to_z3_expr(self):
@@ -153,8 +155,7 @@ class Distinct(Expression):
         return len(set(all_predicates)) == len(all_predicates)
 
 
-# PbEq implementation would depend on the specific requirements for pseudo-boolean equality.
-# Here's a placeholder for its structure:
+
 class PbEq(Expression):
     """...."""
 
@@ -207,11 +208,33 @@ class Eq(Expression):
         return (self.expr1, self.expr2)
 
     def to_z3_expr(self):
-        return z3.eq(self.expr1, self.expr2)
+        return z3.eq(self.expr1.to_z3_expr(), self.expr2.to_z3_expr())
 
     def evaluate_assigned_value(self, value_dct):
         return value_dct[self.expr1] == value_dct[self.expr2]
 
+class PbLe(Expression):
+    """...."""
+
+    def __init__(self, expr_weights: List[Tuple[Expression, int]], equal_val: int):
+        self.expr_weights = expr_weights
+        self.equal_val = equal_val
+
+
+    def get_predicate_name(self):
+        # Implementation depends on specifics of PbEq.
+        names = set()
+        for name,_ in self.expr_weights:
+            names.update(name.get_predicate_name())
+        return names
+
+    def to_z3_expr(self):
+        # Implementation depends on specifics of PbEq.
+        return z3.PbEq(self.expr_weights,self.equal_val)
+
+    def evaluate_assigned_value(self, value_dct):
+        sum_values = sum(expr.evaluate_assigned_value(value_dct) * weight for expr, weight in self.expr_weights)
+        return sum_values<=self.equal_val
 
 class Implies(Expression):
     """Represents a logical implication between two expressions."""
@@ -262,11 +285,17 @@ class Solver:
         s = z3.Solver()
         s.add(self.global_constraints.to_z3_expr())
         for _, condition in self.assertions:
-            s.add(condition.to_z3_expr())
+            # Check if the condition is an instance of your Expression class
+            # and convert it to a Z3 expression if so. Otherwise, use it as is.
+            if isinstance(condition, Expression):
+                z3_condition = condition.to_z3_expr()
+            else:
+                z3_condition = condition
+            s.add(z3_condition)
         if s.check() != z3.sat:
             raise "The conditions provided are not satisfiable"
 
-    def check(self, *args, condition: Expression = None):
+    def check(self, *args, condition: Expression = true()):
         """
         Finds a satisfiable set of conditional variables that satisfies the global constraints
         and an optional specific condition. It then applies corresponding constraints based on this set
@@ -276,8 +305,6 @@ class Solver:
         s = z3.Solver()
         s.add(self.global_constraints.to_z3_expr())
         # unconditional constraint
-        if condition is None:
-            condition = true()
 
         # adding all conditions to solver to determine if they
         # can satisfy the global constraint
@@ -303,13 +330,12 @@ class Solver:
                     solver_with_conditional_constraint.add(conditional_constraint.to_z3_expr())
             solver_with_conditional_constraint.check()
             self.model = solver_with_conditional_constraint.model()
-            return solver_with_conditional_constraint.check()  # todo convert z3.sat to ours???? @sj, this would impact the current program using z3.sat tho
+            return solver_with_conditional_constraint.check(*args)  # todo convert z3.sat to ours???? @sj, this would impact the current program using z3.sat tho
 
         else:
             raise "Impossible to find any way of building constraints"
 
     def model(self):
-        print("ASFA")
         return self.model()
 
 
@@ -318,11 +344,22 @@ unsat = "unsat"
 timeout = "timeout"
 unknown = "unknown"
 
+def my_test():
+    solver = Solver()
+    # Adding unconditional constraints
+    solver.add(Bool("x"), condition=BoolVal(True))  # Unconditionally true
+    solver.add(Bool("y"), condition=BoolVal(True))  # Unconditionally true
+
+    # Should be satisfiable without additional conditions
+    result = solver.check()
+    assert result==z3.sat
+
+
 if __name__ == '__main__':
     s = Solver()
     # s.add(Or(Bool("x"), Bool("y")), Eq(Bool("x"), Bool("y")))
     s.add(Or(Bool("x"), Bool("y")))
-    # s.add(Implies(Bool("x"), Bool("y")), Bool("redundant_implies"))
+    s.add(Implies(Bool("x"), Bool("y")), Bool("redundant_implies"))
     if s.check() == z3.sat:
         m = s.model
         print(m)
@@ -331,3 +368,6 @@ if __name__ == '__main__':
         print('test passed')
     else:
         print('something is very wrong')
+    my_test()
+
+

@@ -192,9 +192,9 @@ def run_experiment_once(single_condition: bool, *args,
         f.write(str(curr_line))
     print("Ran experiment once")
 
+
 def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
     """
-
     :param smt_log_file_path:
     :param time_out: in seconds
     :return:
@@ -238,7 +238,7 @@ def solve_with_cvc5(smt_log_file_path: str, time_out: int) -> (int, int, str):
 
     end_time = time.time()
 
-    # TODO @sj this might not work. maybe some outputs are not in "sat" or "unsat"??
+    # TODO this might not work. maybe some outputs are not in "sat" or "unsat"??
     if not did_timeout:
         if "unsat" in combined_output:
             ans = "unsat"
@@ -265,7 +265,7 @@ def solve_with_yices(smt_log_file_path: str, time_out: int) -> (int, int, str):
 
     end_time = time.time()
 
-    # TODO @sj this might not work. maybe some outputs are not in "sat" or "unsat"??
+    # TODO this might not work. maybe some outputs are not in "sat" or "unsat"??
     if not did_timeout:
         if "unsat" in combined_output:
             ans = "unsat"
