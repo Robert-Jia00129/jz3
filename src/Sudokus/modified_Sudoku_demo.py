@@ -76,6 +76,7 @@ class Sudoku:
                   "If this is intentional, please ignore .")
         random.seed(seed)
 
+        # TODO:
         # Create variables
         if self._distinctdigits:
             self._digit_sort = z3.DeclareSort("Digit")
@@ -183,6 +184,7 @@ class Sudoku:
 
     def new_solver(self):
         """
+        TODO @sj do we still handle the new solver case over here?
         Try checking index[i][j] == Tryval with alternative approach
         :param i:
         :param j:

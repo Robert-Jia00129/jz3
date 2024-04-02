@@ -2,13 +2,31 @@ import subprocess
 import time
 
 
-def run_cvc5(smt2_file):
-    command = f"cvc5 {smt2_file}"
+def run_cvc5(smt2_file, time_out:int=5):
+    command = ["./solvers/cvc5-macOS-arm64",smt2_file,"--lang","smt2"]
+    start_time = time.time()
+    did_timeout = False
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e}"
+        result = subprocess.run(command,
+                                capture_output=True, text=True, timeout=time_out)
+        combined_output = ((result.stdout if result.stdout is not None else "") +
+                           (result.stderr if result.stderr is not None else ""))  # capture all output
+    except subprocess.TimeoutExpired as exc:
+        did_timeout = True
+        combined_output = ((exc.stdout.decode('utf-8') if exc.stdout else "") +
+                           (exc.stderr.decode('utf-8') if exc.stderr else ""))  # capture all output
+    ans = "timeout"
+
+    end_time = time.time()
+
+    if not did_timeout:
+        if "unsat" in combined_output:
+            ans = "unsat"
+        elif "sat" in combined_output:
+            ans = "sat"
+        else:
+            ans = "unknown"
+    return (end_time - start_time, did_timeout, ans)
 
 def run_z3(smt2_file: str, time_out:int = 5):
     """
@@ -50,7 +68,7 @@ def run_yices(smt2_file):
 
 # Dictionary to map solver names to their corresponding functions
 solvers = {
-    # "cvc5": run_cvc5,
+    "cvc5": run_cvc5,
     "z3": run_z3
     # "yices": run_yices
 }
@@ -65,6 +83,6 @@ def run_solvers(smt2_file):
 
     return results
 
-# TODO, accept additional argument to switch between benchmarking mode or solver mode
-# TODO: comparing different solvers
+
+
 
