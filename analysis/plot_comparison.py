@@ -6,6 +6,25 @@ class ConstraintPlotter:
     def __init__(self, file_path):
         self.file_path = file_path
         self.parsed_data = self._parse_data()
+        self.x_max = 5
+        self.y_max = 5
+        self.width = 10
+        self.height = 5
+        self.opacity = 0.6
+        self.marker_size=None
+        self.line_style = 'r--'
+        self.grid = True
+
+    def set_graph_properties(self, x_max=5, y_max=5, width=10, height=5, opacity=0.6, marker_size=None,
+                             line_style='r--', grid=True):
+        self.x_max = x_max
+        self.y_max = y_max
+        self.width = width
+        self.height = height
+        self.opacity = opacity
+        self.marker_size = marker_size
+        self.line_style = line_style
+        self.grid = grid
 
     def _parse_data(self):
         parsed_data = []
@@ -19,7 +38,7 @@ class ConstraintPlotter:
                     continue
         return parsed_data
 
-    def plot_constraints_comparison(self, constraint_comparison_num, solvers=None, x_max=5, y_max=5, combined_plot=False):
+    def plot_constraints_comparison(self, constraint_comparison_num, solvers=None, combined_plot=False, constraint_names=None):
         times_constraint_true = {}
         times_constraint_false = {}
         combined_times_true = []
@@ -51,7 +70,7 @@ class ConstraintPlotter:
             solvers = list(times_constraint_true.keys())
 
         num_plots = len(solvers) + 1 if combined_plot else len(solvers)
-        fig, axs = plt.subplots(num_plots, 1, figsize=(10, 5 * num_plots))
+        fig, axs = plt.subplots(num_plots, 1, figsize=(self.width, self.height * num_plots))
 
         if num_plots == 1:
             axs = [axs]
@@ -62,28 +81,44 @@ class ConstraintPlotter:
                 true_times = times_constraint_true[solver_key][:min_length]
                 false_times = times_constraint_false[solver_key][:min_length]
 
-                axs[i].scatter(true_times, false_times, alpha=0.6)
-                axs[i].plot([0, x_max], [0, y_max], 'r--')
+                axs[i].scatter(true_times, false_times, alpha=self.opacity,s=self.marker_size)
+                axs[i].plot([0, self.x_max], [0, self.y_max], self.line_style)
                 axs[i].set_title(f'Time comparison for {solver_key}')
-                axs[i].set_xlabel(f'Time when constraint {constraint_comparison_num} is True')
-                axs[i].set_ylabel(f'Time when constraint {constraint_comparison_num} is False')
-                axs[i].set_xlim([0, x_max])
-                axs[i].set_ylim([0, y_max])
-                axs[i].grid(True)
+
+                # set x y label according to constraint name
+                if constraint_names and len(constraint_names) > constraint_comparison_num:
+                    constraint_name_true, constraint_name_false = constraint_names[constraint_comparison_num]
+                    axs[i].set_xlabel(f'Time when {constraint_name_true}')
+                    axs[i].set_ylabel(f'Time when {constraint_name_false}')
+                else:
+                    axs[i].set_xlabel(f'Time when constraint {constraint_comparison_num} is True')
+                    axs[i].set_ylabel(f'Time when constraint {constraint_comparison_num} is False')
+
+                axs[i].set_xlim([0, self.x_max])
+                axs[i].set_ylim([0, self.y_max])
+                axs[i].grid(self.grid)
 
         if combined_plot:
             min_length_combined = min(len(combined_times_true), len(combined_times_false))
             combined_true = combined_times_true[:min_length_combined]
             combined_false = combined_times_false[:min_length_combined]
 
-            axs[-1].scatter(combined_true, combined_false, alpha=0.6, color='green')
-            axs[-1].plot([0, x_max], [0, y_max], 'r--')
+            axs[-1].scatter(combined_true, combined_false, alpha=self.opacity,s=self.marker_size, color='green')
+            axs[-1].plot([0, self.x_max], [0, self.y_max], 'r--')
             axs[-1].set_title('Combined Time Comparison for All Solvers')
-            axs[-1].set_xlabel(f'Time when constraint {constraint_comparison_num} is True (All Solvers)')
-            axs[-1].set_ylabel(f'Time when constraint {constraint_comparison_num} is False (All Solvers)')
-            axs[-1].set_xlim([0, x_max])
-            axs[-1].set_ylim([0, y_max])
-            axs[-1].grid(True)
+
+            # set x y label according to constraint name
+            if constraint_names and len(constraint_names) > constraint_comparison_num:
+                constraint_name_true, constraint_name_false = constraint_names[constraint_comparison_num]
+                axs[-1].set_xlabel(f'Time when {constraint_name_true} (All Solvers)')
+                axs[-1].set_ylabel(f'Time when {constraint_name_false} (All Solvers)')
+            else:
+                axs[-1].set_xlabel(f'Time when constraint {constraint_comparison_num} is True (All Solvers)')
+                axs[-1].set_ylabel(f'Time when constraint {constraint_comparison_num} is False (All Solvers)')
+
+            axs[-1].set_xlim([0, self.x_max])
+            axs[-1].set_ylim([0, self.y_max])
+            axs[-1].grid(self.grid)
 
         plt.tight_layout()
         plt.show()
@@ -91,6 +126,11 @@ class ConstraintPlotter:
 
 if __name__ == '__main__':
     time_instances_file_path = '../time-record/particular_hard_instance_time_record/argyle_time.txt'
+    constraint_names = [("classic","argyle"),
+                        ("distinct","PbEq"),
+                        ("percol","inorder"),
+                        ("is_bool","is_num"),
+                        ("prefill","no_prefill"),
+                        ("gen_time","solve_time")]
     plotter = ConstraintPlotter(time_instances_file_path)
-
-    plotter.plot_constraints_comparison(1, solvers=["z3", "cvc5"], x_max=10, y_max=10, combined_plot=True)
+    plotter.plot_constraints_comparison(1, solvers=["z3", "cvc5"],  combined_plot=True,constraint_names=constraint_names)
