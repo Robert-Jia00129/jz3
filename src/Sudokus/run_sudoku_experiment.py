@@ -226,7 +226,7 @@ def solve_with_cvc5(smt_log_file_path: str, time_out: int) -> (int, int, str):
     start_time = time.time()
     did_timeout = False
     try:
-        result = subprocess.run(["./solvers/cvc5-macOS-arm64", smt_log_file_path, "--lang", "smt2"],
+        result = subprocess.run(["../../solvers/cvc5-macOS-arm64", smt_log_file_path, "--lang", "smt2"],
                                 capture_output=True, text=True, timeout=time_out)
         combined_output = ((result.stdout if result.stdout is not None else "") +
                            (result.stderr if result.stderr is not None else ""))  # capture all output
@@ -291,24 +291,26 @@ def solve_with_solver(solver_name: str, smt_file_path, time_out=5) -> (int, int,
     raise ValueError(f"Unknown solver: {solver_name}, please implement the corresponding code")
 
 
-def load_and_alternative_solve_hard(hard_instances_time_record_dir: str, is_classic: bool, num_iter: int, seed,
-                                    currline_path="curr_instance_line.txt", timeout=5, hard_smt_dir="../../problems_instances/particular_hard_instances_records/smt2_files/"):
+def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic: bool, num_iter: int, seed,
+                                    currline_path="curr_instance_line.txt", timeout=5,
+                                    hard_smt_dir="../../problems_instances/particular_hard_instances_records/smt2_files/",
+                                    time_record_dir:str="", ):
     """
     Writes a dictionary with {problem: , cond_1_time: , cond_2_time: cond_3_time: cond_4_time: ...}
     Condition[0] MUST be TRUE when classic and FALSE when argyle
     :param file_path:
     :return: None
     """
-    if not os.path.exists(hard_instances_time_record_dir):
-        print(f"Provided directory does not exist, creating new directory: {hard_instances_time_record_dir}")
-        os.makedirs(hard_instances_time_record_dir)
+    if not os.path.exists(hard_instances_txt_log_dir):
+        print(f"Provided directory does not exist, creating new directory: {hard_instances_txt_log_dir}")
+        os.makedirs(hard_instances_txt_log_dir)
 
     if is_classic:
-        hard_instances_file_path = hard_instances_time_record_dir + "hard_classic_instances.txt"
-        store_comparison_file_path = hard_instances_time_record_dir + "classic_time.txt"
+        hard_instances_file_path = hard_instances_txt_log_dir + "hard_classic_instances.txt"
+        store_comparison_file_path = os.path.join(time_record_dir,"classic_time.txt")
     else:
-        hard_instances_file_path = hard_instances_time_record_dir + "hard_argyle_instance.txt"
-        store_comparison_file_path = hard_instances_time_record_dir + "argyle_time.txt"
+        hard_instances_file_path = hard_instances_txt_log_dir + "hard_argyle_instance.txt"
+        store_comparison_file_path = os.path.join(time_record_dir,"argyle_time.txt")
 
     with open(hard_instances_file_path, 'r+') as fr:
         with open(currline_path, "r") as ftempr:
@@ -387,17 +389,18 @@ if __name__ == '__main__':
 
     # # Left off with argyle-distinct-inorder-is_num-no_prefill-full_timeTotal
     #
-    hard_instances_time_record_dir = "../../time-record/particular_hard_instance_time_record"
-    alternative_solve_curr_line_path = "txt_files/curr_instance_line.txt"
+    time_record_dir = "../../time-record/particular_hard_instance_time_record/"
+    currline_path = "../../problems_instances/particular_hard_instances_records/txt_files/curr_instance_line.txt"
+    hard_instances_txt_log_dir = "../../problems_instances/particular_hard_instances_records/txt_files/"
     # load_and_alternative_solve(hard_instances_time_record_dir, is_classic=True, num_iter=10,
     #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
-    load_and_alternative_solve_hard(hard_instances_time_record_dir=hard_instances_time_record_dir, is_classic=False, num_iter=1000,
-                                    currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
+    load_and_alternative_solve_hard(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=False, num_iter=1,
+                                    currline_path=currline_path, timeout=TIME_OUT, seed=4321)
 
-    for i in range(1):
-        run_experiment_once(False,
-                            **dct
-                            )
+    # for i in range(1):
+    #     run_experiment_once(False,
+    #                         **dct
+    #                         )
     # run_experiment(single_condition=False, full_iter=20, holes_iter=20,
     #                total_time_per_condition=1 * 60 * 1000)
     # run_experiment(True, [False, False, True, True, True], run_full=True, run_holes=False, full_iter=1000,
