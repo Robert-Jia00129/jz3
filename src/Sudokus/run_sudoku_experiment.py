@@ -291,21 +291,24 @@ def solve_with_solver(solver_name: str, smt_file_path, time_out=5) -> (int, int,
     raise ValueError(f"Unknown solver: {solver_name}, please implement the corresponding code")
 
 
-def load_and_alternative_solve_hard(hard_instances_file_dir: str, is_classic: bool, num_iter: int, seed,
-                                    currline_path="curr_instance_line.txt", timeout=5):
+def load_and_alternative_solve_hard(hard_instances_time_record_dir: str, is_classic: bool, num_iter: int, seed,
+                                    currline_path="curr_instance_line.txt", timeout=5, hard_smt_dir="../../problems_instances/particular_hard_instances_records/smt2_files/"):
     """
     Writes a dictionary with {problem: , cond_1_time: , cond_2_time: cond_3_time: cond_4_time: ...}
     Condition[0] MUST be TRUE when classic and FALSE when argyle
     :param file_path:
     :return: None
     """
-    assert os.path.isdir(hard_instances_file_dir), "directory provided does not exist"
+    if not os.path.exists(hard_instances_time_record_dir):
+        print(f"Provided directory does not exist, creating new directory: {hard_instances_time_record_dir}")
+        os.makedirs(hard_instances_time_record_dir)
+
     if is_classic:
-        hard_instances_file_path = hard_instances_file_dir + "hard_classic_instances.txt"
-        store_comparison_file_path = hard_instances_file_dir + "classic_time.txt"
+        hard_instances_file_path = hard_instances_time_record_dir + "hard_classic_instances.txt"
+        store_comparison_file_path = hard_instances_time_record_dir + "classic_time.txt"
     else:
-        hard_instances_file_path = hard_instances_file_dir + "hard_argyle_instance.txt"
-        store_comparison_file_path = hard_instances_file_dir + "argyle_time.txt"
+        hard_instances_file_path = hard_instances_time_record_dir + "hard_argyle_instance.txt"
+        store_comparison_file_path = hard_instances_time_record_dir + "argyle_time.txt"
 
     with open(hard_instances_file_path, 'r+') as fr:
         with open(currline_path, "r") as ftempr:
@@ -347,12 +350,12 @@ def load_and_alternative_solve_hard(hard_instances_file_dir: str, is_classic: bo
                 if (CorAcondition) not in store_result_dict:
                     store_result_dict[CorAcondition] = {}  # initialize the dictionary
                 if "smt_path" not in store_result_dict[CorAcondition]:
-                    single_condition_smt_path = Sudoku.generate_smt(store_result_dict["problem"]["grid"],
-                                                                    CorAcondition,
-                                                                    store_result_dict["problem"]["index"],
-                                                                    store_result_dict["problem"]["try_Val"],
-                                                                    store_result_dict["problem"]["is_sat"],
-                                                                    smt_dir="ArgyleSudoku/Sudoku/smt2_files/", seed=seed)
+                    single_condition_smt_path = Sudoku.generate_smt_for_particular_instance(store_result_dict["problem"]["grid"],
+                                                                                            CorAcondition,
+                                                                                            store_result_dict["problem"]["index"],
+                                                                                            store_result_dict["problem"]["try_Val"],
+                                                                                            store_result_dict["problem"]["is_sat"],
+                                                                                            smt_dir=hard_smt_dir, seed=seed)
                     store_result_dict[CorAcondition]["smt_path"] = single_condition_smt_path
                 else:
                     single_condition_smt_path = store_result_dict["smt_path"]
@@ -384,12 +387,12 @@ if __name__ == '__main__':
 
     # # Left off with argyle-distinct-inorder-is_num-no_prefill-full_timeTotal
     #
-    # hard_instances_file_dir = "txt_files/"
-    # alternative_solve_curr_line_path = "txt_files/curr_instance_line.txt"
-    # # load_and_alternative_solve(hard_instances_file_dir, is_classic=True, num_iter=10,
-    # #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
-    # load_and_alternative_solve_hard(hard_instances_file_dir, is_classic=False, num_iter=1000,
-    #                                 currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
+    hard_instances_time_record_dir = "../../time-record/particular_hard_instance_time_record"
+    alternative_solve_curr_line_path = "txt_files/curr_instance_line.txt"
+    # load_and_alternative_solve(hard_instances_time_record_dir, is_classic=True, num_iter=10,
+    #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
+    load_and_alternative_solve_hard(hard_instances_time_record_dir=hard_instances_time_record_dir, is_classic=False, num_iter=1000,
+                                    currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
 
     for i in range(1):
         run_experiment_once(False,

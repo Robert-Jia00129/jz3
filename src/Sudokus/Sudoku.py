@@ -11,12 +11,14 @@ from typing import List
 from pathlib import Path
 from src.z3_wrapper import Solver2SMT
 
+
 # z3.set_param('parallel.enable',True)
 
 class Sudoku:
-    _grid = None # Creating an empty matrix with None everywhere
-    _solver = None # The solver
-    _valid_charset = set([int(x) for x in range(0, 10)]) # Set of valid input chars that is could be placed in a position
+    _grid = None  # Creating an empty matrix with None everywhere
+    _solver = None  # The solver
+    _valid_charset = set(
+        [int(x) for x in range(0, 10)])  # Set of valid input chars that is could be placed in a position
     _classic = True
     _distinct = True
     _per_col = True
@@ -80,19 +82,18 @@ class Sudoku:
         if self._distinctdigits:
             self._digit_sort = z3.DeclareSort("Digit")
             self._constants = [z3.Const(f"C{i}", self._digit_sort) for i in range(1, 10)]
-            self._grid = [[z3.Const(f"cell_{r+1}_{c+1}", self._digit_sort) for c in range(9)] for r in range(9)]
+            self._grid = [[z3.Const(f"cell_{r + 1}_{c + 1}", self._digit_sort) for c in range(9)] for r in range(9)]
 
         else:
-            self._constants = [i for i in range(1,10)]
+            self._constants = [i for i in range(1, 10)]
             if not no_num:
-                self._grid = [[z3.Const(f"cell_{r+1}_{c+1}",z3.IntSort()) for c in range(9)] for r in range(9)]
+                self._grid = [[z3.Const(f"cell_{r + 1}_{c + 1}", z3.IntSort()) for c in range(9)] for r in range(9)]
             else:
-                self._grid = [[[z3.Const(f"cell_{r+1}_{c+1}_{num+1}",z3.BoolSort()) for num in range(9)]
+                self._grid = [[[z3.Const(f"cell_{r + 1}_{c + 1}_{num + 1}", z3.BoolSort()) for num in range(9)]
                                for c in range(9)] for r in range(9)]
 
         assert (len(sudoku_array) == 81), f"Invalid sudoku string provided! length:{len(sudoku_array)}"
         self.load_numbers(sudoku_array[:81])
-
 
     def generate_smt2_file(self, filename):
         return self._solver.generate_smtlib(filename)
@@ -127,7 +128,7 @@ class Sudoku:
                     elif self._distinctdigits:
                         self._solver.add(self._grid[r][c] == self._constants[self._nums[r][c] - 1])
                         # , conditional = not (self._no_num) & & self._distinctdigits
-                    else: # 1-9 number
+                    else:  # 1-9 number
                         self._solver.add(self._grid[r][c] == int(self._nums[r][c]))
 
         for r in range(0, 9, 3):
@@ -155,9 +156,9 @@ class Sudoku:
                 # if self._distinctdigits:
                 #     self._solver.add(self._solver.Or(digit == 1, digit == 2)...)
                 # else:
-                self._solver.add(z3.Or([cell==c for c in self._constants]))
-                    # self._solver.add(digit >= 1) # ==1 ==2 ==3 ==4 ....
-                    # self._solver.add(digit <= 9)  # Digit
+                self._solver.add(z3.Or([cell == c for c in self._constants]))
+                # self._solver.add(digit >= 1) # ==1 ==2 ==3 ==4 ....
+                # self._solver.add(digit <= 9)  # Digit
             if self._distinct:  # distinct, numbers 2D grid
                 [self._solver.add(z3.Distinct(row)) for row in rows]  # rows
                 [self._solver.add(z3.Distinct(row)) for row in cols]  # cols
@@ -192,7 +193,6 @@ class Sudoku:
                         [z3.PbLe([(digit == k, 1) for digit in arg], 1) for arg in argyle_hints for k in range(9)]))
         self._solver.start_recording()
 
-
     def new_solver(self):
         """
         Try checking index[i][j] == Tryval with alternative approach
@@ -202,7 +202,7 @@ class Sudoku:
         :return:
         """
         s_new = Sudoku([c for r in self._nums for c in r], self._classic, False,
-                       self._per_col, True, self._prefill,seed=4321)
+                       self._per_col, True, self._prefill, seed=4321)
         s_new._timeout = 0
         s_new._solver.set("timeout", 0)
         s_new.load_constraints()
@@ -211,7 +211,8 @@ class Sudoku:
 
     def check_condition(self, i, j, tryVal):
         start = time.time()
-        res = self._solver.check(self._grid[i][j][tryVal - 1] if self._no_num else self._grid[i][j] == self._constants[tryVal-1])
+        res = self._solver.check(
+            self._grid[i][j][tryVal - 1] if self._no_num else self._grid[i][j] == self._constants[tryVal - 1])
         end = time.time()
         if self._timeout == 0: return res
         if end - start < (self._timeout - 100) / 1000 and res == z3.unknown:
@@ -250,7 +251,7 @@ class Sudoku:
 
     def check_not_removable(self, i, j, tryVal):
         res = self._solver.check(
-            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal-1])
+            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal - 1])
         return res
 
     def add_constaint(self, i, j, tryVal):
@@ -263,11 +264,12 @@ class Sudoku:
         self._solver_operations.append(("assert", str(constraint)))
 
     def add_not_equal_constraint(self, i, j, tryVal):
-        self._solver.add(self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal-1])
+        self._solver.add(
+            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal - 1])
 
-    def gen_solved_sudoku(self):
+    def gen_full_sudoku(self):
         """
-        produce a solved FULL sudoku
+        produce a solved/FULL sudoku
         --Replacement: solving_sudoku function
 
         :return: 2D list of a solved FULL sudoku
@@ -320,7 +322,7 @@ class Sudoku:
                     if self._no_num:
                         self._solver.add(self._grid[i][j][tryVal - 1])
                     else:
-                        self._solver.add(self._grid[i][j] == self._constants[tryVal-1])
+                        self._solver.add(self._grid[i][j] == self._constants[tryVal - 1])
 
                 if self._verbose:
                     print(f'Finished with row {i} and filled \n {self._nums[i]}')
@@ -390,7 +392,7 @@ class Sudoku:
 
     def solve_and_generate_smt2(self, output_file):
 
-        nums, penalty = self.gen_solved_sudoku()
+        nums, penalty = self.gen_full_sudoku()
 
         if nums is not None:
             print("Sudoku solved successfully!")
@@ -402,7 +404,6 @@ class Sudoku:
 
         print(f"SMT2 file generated: {output_file}")
         return self._solver.generate_smtlib(output_file)
-
 
     def write_to_smt_and_sudoku_file(self, pos, value, sat):
         """Write self._solver as a smt file to _log_path
@@ -416,7 +417,7 @@ class Sudoku:
         par_dir = Path(self._hard_smt_logPath).parent
         if not os.path.exists(par_dir):
             os.makedirs(par_dir)
-        time_str = time.strftime("%m_%d_%H_%M_%S") + str(time.time()) # making sure no repetition in file name
+        time_str = time.strftime("%m_%d_%H_%M_%S") + str(time.time())  # making sure no repetition in file name
         # record as smt file
         with open(self._hard_smt_logPath + time_str, 'w') as myfile:
             print(self._solver.to_smt2(), file=myfile)
@@ -446,10 +447,9 @@ class Sudoku:
         # Add the specific condition for the cell at 'index'
         i, j = index
         if is_sat:
-            self.add_constaint(i,j,try_val)
+            self.add_constaint(i, j, try_val)
         else:
-            self.add_not_equal_constraint(i,j,try_val)
-
+            self.add_not_equal_constraint(i, j, try_val)
 
         # Generate the file path for the SMT file
         file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
@@ -460,8 +460,6 @@ class Sudoku:
             smt_file.write(self._solver.to_smt2())
 
         return file_path
-
-
 
 
 def generate_puzzle(solved_sudokus, classic: bool, distinct: bool, per_col: bool, no_num: bool, prefill: bool, seed,
@@ -486,7 +484,8 @@ def generate_puzzle(solved_sudokus, classic: bool, distinct: bool, per_col: bool
         penalty = 0
         for i in range(9):
             for j in range(9):
-                s = Sudoku(puzzle.reshape(-1), classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path, seed=seed)
+                s = Sudoku(puzzle.reshape(-1), classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path,
+                           seed=seed)
                 removable, temp_penalty = s.removable(i, j, puzzle[i][j])
                 if removable:
                     puzzle[i][j] = 0
@@ -502,6 +501,7 @@ def generate_puzzle(solved_sudokus, classic: bool, distinct: bool, per_col: bool
     assert len(time_rec) == len(penalty_lst), "Bug in generate_puzzle"
 
     return time_rec, penalty_lst
+
 
 def pure_constraints(classic: bool, distinct: bool, per_col: bool, no_num: bool, prefill: bool, seed, num_iter=1,
                      log_path="logFile"):
@@ -531,7 +531,7 @@ def gen_solve_sudoku(classic: bool, distinct: bool, per_col: bool, no_num: bool,
         empty_list = [0 for i in range(9) for j in range(9)]
         st = time.time()
         s = Sudoku(empty_list, classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path, seed=seed)
-        nums, penalty = s.gen_solved_sudoku()
+        nums, penalty = s.gen_full_sudoku()
         et = time.time()
         store_solved_sudoku.append(nums)
         ret_solve_time.append(et - st)
@@ -540,7 +540,7 @@ def gen_solve_sudoku(classic: bool, distinct: bool, per_col: bool, no_num: bool,
     store_holes = deepcopy(store_solved_sudoku)
     store_holes = np.array(store_holes)
     print("Start generating puzzles")
-    ret_holes_time, holes_penalty = generate_puzzle(store_holes, classic, distinct, per_col, no_num, prefill,seed=seed)
+    ret_holes_time, holes_penalty = generate_puzzle(store_holes, classic, distinct, per_col, no_num, prefill, seed=seed)
     assert len(ret_solve_time) == len(solve_penalty), "error in gen_solve_sudoku"
     return ret_solve_time, solve_penalty, ret_holes_time, holes_penalty
 
@@ -553,8 +553,9 @@ def append_list_to_file(file_path, lst: list[int]):
         f.write(str(lst) + "\n")
 
 
-def gen_full_sudoku(*constraints, seed, hard_smt_logPath='smt2_files/', store_sudoku_path="", hard_sudoku_logPath="") -> (
-float, int):
+def gen_full_sudoku(*constraints, seed, hard_smt_logPath='smt2_files/', store_sudoku_path="",
+                    hard_sudoku_logPath="") -> (
+        float, int):
     """
     append generated full sudoku to the designated path as a string
     
@@ -565,8 +566,9 @@ float, int):
     """
     empty_list = [0 for i in range(9) for j in range(9)]
     st = time.time()
-    s = Sudoku(empty_list, *constraints, hard_smt_logPath=hard_smt_logPath, hard_sudoku_logPath=hard_sudoku_logPath, seed=seed)
-    nums, penalty = s.gen_solved_sudoku()
+    s = Sudoku(empty_list, *constraints, hard_smt_logPath=hard_smt_logPath, hard_sudoku_logPath=hard_sudoku_logPath,
+               seed=seed)
+    nums, penalty = s.gen_full_sudoku()
     et = time.time()
     # Write to file
     append_list_to_file(store_sudoku_path, sum(nums, []))  # flatten 2D nums into 1D
@@ -591,7 +593,7 @@ def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logP
     for i in range(9):
         for j in range(9):
             s = Sudoku(solved_sudoku, *constraints, hard_smt_logPath=hard_smt_logPath,
-                       hard_sudoku_logPath=hard_sudoku_logPath,seed=seed)
+                       hard_sudoku_logPath=hard_sudoku_logPath, seed=seed)
             removable, temp_penalty = s.removable(i, j, solved_sudoku[i * 9 + j])
             if removable:
                 solved_sudoku[i * 9 + j] = 0
@@ -607,7 +609,8 @@ def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logP
     return time_rec, penalty
 
 
-def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), try_val: int, is_sat: str, seed: float) -> (int, int):
+def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), try_val: int, is_sat: str,
+                          seed: float) -> (int, int):
     """
 
     :param sudoku_grid:
@@ -632,7 +635,8 @@ def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), 
     return end - start, penalty
 
 
-def generate_smt(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str, seed: float) -> str:
+def generate_smt_for_particular_instance(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str,
+                                         seed: float) -> str:
     """
     Add an additional constraint to the Sudoku problem, generate an SMT file, and return the file path.
     :param index: Tuple (row, column) of the cell for the additional constraint.
@@ -641,11 +645,10 @@ def generate_smt(grid: str, constraint: list, index: (int, int), try_val: int, i
     :param smt_dir: Directory to store the generated SMT file.
     :return: The path to the generated SMT file.
     """
-    solver = Sudoku(list(map(int,(grid))),*constraint,seed=seed)
-    file_path = solver.generate_smt_with_additional_constraint(index,try_val,is_sat,smt_dir)
+    solver = Sudoku(list(map(int, (grid))), *constraint, seed=seed)
+    file_path = solver.generate_smt_with_additional_constraint(index, try_val, is_sat, smt_dir)
 
     return file_path
-
 
 
 if __name__ == "__main__":
@@ -665,15 +668,14 @@ if __name__ == "__main__":
     # store_holes = np.load('solved_sudoku.npy')
     # ret_holes_time = generate_puzzle(store_holes, True, True, False, False)
     empty_list = [0 for i in range(9) for j in range(9)]
-    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True,seed=1234,distinct_digits=True)
+    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
+               distinct_digits=True)
     smt_str = s.solve_and_generate_smt2("my-smt.smt2")
 
     print("Process finished")
 
-
-
 # fill when grid is almost full
-    # check the time to fill the grid when it's almost full
+# check the time to fill the grid when it's almost full
 
 # helper to rerun experiment
 
