@@ -6,7 +6,7 @@ import warnings
 
 # child class to write push and pop to SMT2 file
 class Solver2SMT(z3.Solver):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, benchmark_mode=False,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__start_recording = False
         self.__history = []
@@ -15,13 +15,14 @@ class Solver2SMT(z3.Solver):
         self.__smt_str = ""
         self.__condition_var_assignment_model = None
         self.__latest_solvers_results = None
-        self.__benchmark_mode = False
+        self.__benchmark_mode = benchmark_mode
 
     def __getattribute__(self, name):
         _allowed_methods = ['add', 'add_global_constraints', 'add_conditional_constraint',
                                  'check_conditional_constraints', 'check', 'push', 'pop',
                                  'start_recording', 'generate_smtlib','_allowed_methods',
-                            'ctx','solver','set','assert_exprs','to_smt2','assertions']
+                            'ctx','solver','set','assert_exprs','to_smt2','assertions','get_condition_var_assignment_model',
+                            'get_latest_solvers_results']
         if name.startswith('_') or name in _allowed_methods: # intentionally accessing a private variable
             return object.__getattribute__(self,name)
         else:
@@ -68,10 +69,7 @@ class Solver2SMT(z3.Solver):
             # possible combination of condition variables
             model = s.model()
 
-            # solve under s.model() and record the smt file
             solver_with_conditional_constraint = Solver2SMT()
-            # TODO, not really necessary, believe I can remove this @sj
-            # solver_with_conditional_constraint.add_global_constraints(self.__global_constraints)
 
             # add corresponding conditional constraints and try to solve
             for (conditional_constraint, condition) in self.__assertions:
@@ -84,17 +82,57 @@ class Solver2SMT(z3.Solver):
             solver_with_conditional_constraint.start_recording()
             result = solver_with_conditional_constraint.check()
 
+            self.__condition_var_assignment_model = [model]
+
             # Only launch multiple solvers when in benchmark mode
             if self.__benchmark_mode:
+                self.__condition_var_assignment_model = []
+                self.__latest_solvers_results = []
+
+                # find different combinations
+                opt = z3.Optimize()
+                opt.add(self.__global_constraints)
+
+                # First combination
+                opt.push()
+                # TODO @sj
+                opt.maximize(z3.Sum([z3.If(cond, 1, 0) for (_, cond) in self.__assertions]))
+                opt.check()
+                combination1 = opt.model()
+                opt.pop()
+
+                # Second combination
+                opt.push()
+                opt.minimize(z3.Sum([z3.If(cond, 1, 0) for (_, cond) in self.__assertions]))
+                opt.check()
+                combination2 = opt.model()
+                opt.pop()
+
+                for combination in [combination1, combination2]:
+                    # solve under s.model() and record the smt file
+                    solver_with_conditional_constraint = Solver2SMT()
+
+                    # add corresponding conditional constraints and try to solve
+                    for (conditional_constraint, condition) in self.__assertions:
+                        if condition == z3.BoolVal(True) or model.eval(condition):
+                            if self.__start_recording:
+                                self.__history.append(("add", str(conditional_constraint.sexpr())))
+                            solver_with_conditional_constraint.add(conditional_constraint)
+
+                    # append the combination to the results
+                    # solver_with_conditional_constraint.start_recording()
+                    result = solver_with_conditional_constraint.check()
+                    self.__latest_solvers_results.append(run_solvers.run_solvers("conditional_constraints.smt2"))
+                    self.__condition_var_assignment_model.append(combination)
+
                 # store smt file/str
-                self.__smt_str = solver_with_conditional_constraint.generate_smtlib("conditional_constraints.smt2")
-                # TODO: don't necessarily need to write to file, might need it in the future
-                # with open("conditional_constraints.smt2", "w") as file:
-                #     file.write(self.smt_str)
-                self.__condition_var_assignment_model = model
+                self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
+
+                with open("conditional_constraints.smt2", "w") as file:
+                    file.write(self.__smt_str)
 
                 # launch multiple solvers and store resutls
-                self.__latest_solvers_results = run_solvers.run_solvers("conditional_constraints.smt2")
+
 
             # pop the temporarily added conditional constraints
             if args:
@@ -165,32 +203,14 @@ class Solver2SMT(z3.Solver):
         output.close()
         return smt_str
 
+    def get_condition_var_assignment_model(self):
+        return self.__condition_var_assignment_model
 
-def z3_distinct_pbeq_test():
-    solver = Solver2SMT()
-
-    # Define condition variables
-    distinct = z3.Bool('distinct')
-    pbeq = z3.Bool('pbeq')
-
-    # Add global constraints
-    solver.add_global_constraints(z3.Or(distinct, pbeq))
-
-    # Define Sudoku grid
-    grid = [[z3.Int(f'cell_{i}_{j}') for j in range(9)] for i in range(9)]
-
-    # Add classic Sudoku constraints
-    for row in grid:
-        solver.add_conditional_constraint(z3.Distinct(row), condition=distinct)
-        for num in range(1, 10):
-            solver.add_conditional_constraint(z3.PbEq([(cell == num, 1) for cell in row], 1), condition=pbeq)
-
-    # Check if the first cell can be zero
-    result = solver.check_conditional_constraints(grid[0][0] == 0)
-    print(result)
+    def get_latest_solvers_results(self):
+        return self.__latest_solvers_results
 
 def simple_test():
-    solver = Solver2SMT()
+    solver = Solver2SMT(benchmark_mode=True)
 
     x = z3.Int('x')
     y = z3.Int('y')
@@ -203,12 +223,67 @@ def simple_test():
 
     solver.add_global_constraints(z3.Or(condition1, condition2))
 
-    solver.add_conditional_constraint(x > 5, condition=condition1)
-    solver.add_conditional_constraint(x < 5, condition=condition2)
+    solver.add_conditional_constraint(x < 5, condition=condition1)
+    solver.add_conditional_constraint(x > 5, condition=condition2)
 
     solver.start_recording()
     result = solver.check_conditional_constraints()
     print(result)
 
+    # Access the recorded combinations and performance results
+    print("Condition Variable Assignment Models:")
+    print(solver.get_condition_var_assignment_model())
+    print("Latest Solvers Results:")
+    print(solver.get_latest_solvers_results())
+
+def optimizer_test():
+    # Create variables
+    x = z3.Int('x')
+    y = z3.Int('y')
+    z = z3.Int('z')
+
+    # Create conditions
+    cond1 = z3.Bool('cond1')
+    cond2 = z3.Bool('cond2')
+    cond3 = z3.Bool('cond3')
+
+    # Create constraints
+    constraints = [
+        z3.Implies(cond1, x > 0),
+        z3.Implies(cond2, y > 0),
+        z3.Implies(cond3, z > 0)
+    ]
+
+    # Create optimizer
+    opt = z3.Optimize()
+
+    # Add constraints to the optimizer
+    for constraint in constraints:
+        opt.add(constraint)
+
+    # Add conditions to the optimizer
+    opt.add(z3.Or(cond1, cond2, cond3))
+
+    # First combination (maximize)
+    opt.push()
+    opt.maximize(z3.Sum([z3.If(cond, 1, 0) for cond in [cond1, cond2, cond3]]))
+    opt.check()
+    combination1 = opt.model()
+    opt.pop()
+
+    # Second combination (minimize)
+    opt.push()
+    opt.minimize(z3.Sum([z3.If(cond, 1, 0) for cond in [cond1, cond2, cond3]]))
+    combination2 = opt.model()
+    opt.pop()
+
+    # Print the combinations
+    print("Combination 1:")
+    print(combination1)
+    print("Combination 2:")
+    print(combination2)
+
+
 if __name__ == '__main__':
-    z3_distinct_pbeq_test()
+    simple_test()
+    # optimizer_test()

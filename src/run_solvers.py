@@ -3,7 +3,8 @@ import time
 
 
 def run_cvc5(smt2_file, time_out:int=5):
-    command = ["./solvers/cvc5-macOS-arm64",smt2_file,"--lang","smt2"]
+    cvc_path = "../solvers/cvc5-macOS-arm64"
+    command = [cvc_path,smt2_file,"--lang","smt2"]
     start_time = time.time()
     did_timeout = False
     try:
@@ -73,11 +74,12 @@ solvers = {
     # "yices": run_yices
 }
 
-def run_solvers(smt2_file):
+def run_solvers(smt2_file,verbose=False):
     results = {}
 
     for solver, run_function in solvers.items():
-        print(f"Running {solver}...")
+        if verbose:
+            print(f"Running {solver}...")
         result = run_function(smt2_file)
         results[solver] = result
 
