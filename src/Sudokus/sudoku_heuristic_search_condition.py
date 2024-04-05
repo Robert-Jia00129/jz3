@@ -1,691 +1,480 @@
-import itertools
-import os.path
-# import src.SMTs.SMTs as z3  # if this fails, run 'python -m pip install z3-solver'
-# import src.SMTs.SMTs as z3
-import z3
-import numpy as np
-import random
-from copy import deepcopy
+import os
+import subprocess
 import time
-from typing import List
+import zipfile
 from pathlib import Path
-from src.z3_wrapper import Solver2SMT
-
-
-# z3.set_param('parallel.enable',True)
-
-class Sudoku:
-    _grid = None  # Creating an empty matrix with None everywhere
-    _solver = None  # The solver
-    _valid_charset = set(
-        [int(x) for x in range(0, 10)])  # Set of valid input chars that is could be placed in a position
-    _classic = True
-    _distinct = True
-    _per_col = True
-    _no_num = True
-    _prefill = False
-    _hard_smt_logPath = None
-    _hard_sudoku_logPath = None
-
-    def __init__(self, sudoku_array: List[int], classic: bool, distinct: bool, per_col: bool, no_num: bool,
-                 prefill: bool, seed, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=False
-                 ):
-        """
-        Only write a logFile when a path is provided
-        Type hint for List[int] might not work
-        :param sudoku_array:
-        :param classic: classic or argyle sudoku
-        :param distinct: encoding constraints using z3.Distinct() or z3.PbEq()
-        :param per_col: start filling/removing the grid with number in per_col order:
-            (start with the first index (0,0) and end at index (8,8))
-            or not per_col order:
-            (start filling the grid with number order. first filling in all the 1s, 2s, 3s...
-            and end with the number 9)
-        :param no_num: Encode the numbers with numberic representation (1-9) or
-                boolean representation (val1, val2... val9): val2==True indicates the number is 2 at this index
-        :param prefill: prefill the grid:
-            per_col case: prefill the first row with 1-9 in random order
-            not per_col case: prefill all the 1s with random numbers
-        :param hard_smt_logPath:
-        """
-        # a 1-D sudoku_array
-        self._solver = Solver2SMT()
-        self._timeout = 5000
-        self._incTimeOut = self._timeout
-        self._solver.set("timeout", self._timeout)
-        # self._solver.from_file("fileName")
-        self._classic = classic
-        self._distinct = z3.Bool('distinct')
-        self._no_num = z3.Bool('no_num')
-        self._per_col = per_col
-        self._nums = [[0 for _ in range(9)] for _ in range(9)]
-        self._hard_smt_logPath = hard_smt_logPath
-        self._hard_sudoku_logPath = hard_sudoku_logPath
-        self._prefill = prefill
-        self._penalty = 0
-        self.condition_tpl = (self._classic, self._distinct, self._per_col, self._no_num, self._prefill)
-        self._verbose = verbose
-        self._bool_timeout = False
-        self._seed = seed
-        self._store_global = False
-        self._global_solver = z3.Solver()
-        self._distinctdigits = z3.Bool('distinctdigits')
-        if seed == 0:
-            print("WARNING: NO random seed was set for solver class. "
-                  "This would cause experiments to be unreliable when compared in across constraints."
-                  "If this is intentional, please ignore .")
-        random.seed(seed)
-
-        # TODO:
-        # Create variables
-        if self._distinctdigits:
-            self._digit_sort = z3.DeclareSort("Digit")
-            self._constants = [z3.Const(f"C{i}", self._digit_sort) for i in range(1, 10)]
-            self._grid = [[z3.Const(f"cell_{r + 1}_{c + 1}", self._digit_sort) for c in range(9)] for r in range(9)]
-
-        else:
-            self._constants = [i for i in range(1, 10)]
-            if not no_num:
-                self._grid = [[z3.Const(f"cell_{r + 1}_{c + 1}", z3.IntSort()) for c in range(9)] for r in range(9)]
-            else:
-                self._grid = [[[z3.Const(f"cell_{r + 1}_{c + 1}_{num + 1}", z3.BoolSort()) for num in range(9)]
-                               for c in range(9)] for r in range(9)]
-
-        assert (len(sudoku_array) == 81), f"Invalid sudoku string provided! length:{len(sudoku_array)}"
-        self.load_numbers(sudoku_array[:81])
-
-    def generate_smt2_file(self, filename):
-        return self._solver.generate_smtlib(filename)
-
-    def load_numbers(self, sudoku_array):
-        """
-        assign each number in sudoku_array to grid
-        :param sudoku_array: np.matrix
-        :return: None
-        """
-        for r in range(9):
-            for c in range(9):
-                x = sudoku_array[r * 9 + c]
-                assert (x in self._valid_charset), "Invalid sudoku string provided! (invalid character \'{}\')".format(
-                    x)
-                if x != 0:
-                    self._nums[r][c] = int(x)
-
-    def load_constraints(self):
-        cells = [self._grid[r][c] for c in range(9) for r in range(9)]  # each grid cell
-        rows = [self._grid[r] for r in range(9)]  # row 1-9
-        cols = [[self._grid[r][c] for r in range(9)] for c in range(9)]  # col 1-9
-        offset = list(itertools.product(range(0, 3), range(0, 3)))  # box 1st -9th
-        boxes = []
-        # Load existing numbers
-        # TODO: add global constraints
-        for r in range(9):
-            for c in range(9):
-                if self._nums[r][c] != 0:
-                    self._solver.add_conditional_constraint(self._grid[r][c][self._nums[r][c] - 1],condition=self._no_num)
-                    self._solver.add_conditional_constraint(self._grid[r][c] == self._constants[self._nums[r][c] - 1],condition=self._distinctdigits)
-                    # , conditional = not (self._no_num) & & self._distinctdigits
-                    self._solver.add_conditional_constraint(self._grid[r][c] == int(self._nums[r][c]),condition=z3.Not(self._distinctdigits))
-
-        for r in range(0, 9, 3):
-            for c in range(0, 9, 3):
-                boxes.append([self._grid[r + dy][c + dx] for dy, dx in offset])
-
-        # global constraints: pbeq ONLY, no_num 3D grid
-        #  for i in range(9) for j in range(9)]  # digit
-        [self._solver.add_conditional_constraint(z3.PbEq([(self._grid[i][j][k], 1) for k in range(9)], 1),condition=self._no_num)
-         for i in range(9) for j in range(9)]  # digit
-        [self._solver.add_conditional_constraint(z3.PbEq([(self._grid[k][i][j], 1) for k in range(9)], 1),condition=self._no_num)
-         for i in range(9) for j in range(9)]  # Col distinct
-        [self._solver.add_conditional_constraint(z3.PbEq([(self._grid[j][k][i], 1) for k in range(9)], 1),condition=self._no_num)
-         for i in range(9) for j in range(9)]  # Row distinct
-        [self._solver.add_conditional_constraint(z3.PbEq([(box[k][j], 1) for k in range(9)], 1),condition=self._no_num)
-         for j in range(9) for box in boxes]  # box
-        # Restrict cells in between 1-9 for # not nonum case
-        for cell in cells:
-            # TODO @sj we could maybe also improve this with PBEQ,
-            #  or we could just do assignment like this instead of the commented out way
-            # if self._distinctdigits:
-            #     self._solver.add(self._solver.Or(digit == 1, digit == 2)...)
-            # else:
-            # TODO @sj ***** This is difficult to get around
-            self._solver.add_conditional_constraint(z3.Or([cell == c for c in self._constants]))
-            # self._solver.add(digit >= 1) # ==1 ==2 ==3 ==4 ....
-            # self._solver.add(digit <= 9)  # Digit
-        # if self._distinct:  # distinct, numbers 2D grid
-        [self._solver.add_conditional_constraint(z3.Distinct(row),condition=self._distinct) for row in rows]  # rows
-        [self._solver.add_conditional_constraint(z3.Distinct(row),condition=self._distinct) for row in cols]  # cols
-        [self._solver.add_conditional_constraint(z3.Distinct(row),condition=self._distinct) for row in boxes]  # boxes
-    # else:  # pbeq, numbers, 2D grid
-        [self._solver.add_conditional_constraint(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1),condition=z3.Not(self._distinct))
-         for k in range(1, 10) for row in rows]
-        [self._solver.add_conditional_constraint(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1), condition=z3.Not(self._distinct))
-         for k in range(1, 10) for row in cols]
-        [self._solver.add_conditional_constraint(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1), condition=z3.Not(self._distinct))
-         for k in range(1, 10) for row in boxes]
-    # Argyle-----
-        if not self._classic:
-            argyle_hints = [[self._grid[r][r + 4] for r in range(4)]  # Major diagonal 1
-                , [self._grid[r][r + 1] for r in range(8)]  # ??
-                , [self._grid[r + 1][r] for r in range(8)]
-                , [self._grid[r + 4][r] for r in range(4)]
-                , [self._grid[r][-r - 5] for r in range(4)]
-                , [self._grid[r][-r - 2] for r in range(8)]
-                , [self._grid[r + 1][-r - 1] for r in range(8)]
-                , [self._grid[r + 4][-r - 1] for r in range(4)]
-                            ]
-            # nonum
-            self._solver.add_conditional_constraint(
-                z3.And([z3.PbLe([(digit[k], 1) for digit in arg], 1) for arg in argyle_hints for k in range(9)]),condition=self._no_num)
-            self._solver.add_conditional_constraint(z3.And([z3.Distinct(arg) for arg in argyle_hints]),condition=self._distinct)
-            self._solver.add_conditional_constraint(z3.And(
-                [z3.PbLe([(digit == k, 1) for digit in arg], 1) for arg in argyle_hints for k in range(9)]),condition=z3.Not(self._distinct))
-        self._solver.start_recording()
-
-    def new_solver(self):
-        """
-        TODO @sj do we still handle the new solver case over here?
-        Try checking index[i][j] == Tryval with alternative approach
-        :param i:
-        :param j:
-        :param tryVal:
-        :return:
-        """
-        s_new = Sudoku([c for r in self._nums for c in r], self._classic, False,
-                       self._per_col, True, self._prefill, seed=4321)
-        s_new._timeout = 0
-        s_new._solver.set("timeout", 0)
-        s_new.load_constraints()
-        self._penalty += 1
-        return s_new
-
-    def check_condition(self, i, j, tryVal):
-        start = time.time()
-        res = self._solver.check(
-            self._grid[i][j][tryVal - 1] if self._no_num else self._grid[i][j] == self._constants[tryVal - 1])
-        end = time.time()
-        if self._timeout == 0: return res
-        if end - start < (self._timeout - 100) / 1000 and res == z3.unknown:
-            raise 'Probably somebody hit ctrl-c, aborting'
-        elif self._verbose and end - start > self._timeout / 10000 and res != z3.unknown:
-            print('One check took more than 10% of timeout, but completed')
-        return res
-
-    def removable(self, i, j, test_num) -> (bool, int):
-        """
-        Testing one index by one index. How to use push and pop
-        to test to whole grid without reloading constraints
-        Test if test_num is unique and could be removed
-        --Replacement: check_puzzle_solvable function
-
-        :param test_num: 1-9
-        :return: (removable: bool, penalty: int)
-        """
-        self._nums[i][j] = 0
-        self.load_constraints()
-        condition = self.check_not_removable(i, j, test_num)  # try _nums[i][j] != test_num
-        if condition == z3.sat:
-            return False, 0
-        elif condition == z3.unknown:
-            # Try solving with faster method
-            condition = self.new_solver().check_not_removable(i, j, test_num)
-            if condition == z3.unknown:
-                raise f"Timeout happened twice when checking if {i} {j} {test_num} is removable"
-            else:
-
-                if self._verbose:
-                    print(f'unsolvable problem checking removable was {condition} for ({i},{j}) is {test_num}')
-                self.write_to_smt_and_sudoku_file((i, j), test_num, condition)
-                return condition != z3.sat, 1
-        return True, 0
-
-    def check_not_removable(self, i, j, tryVal):
-        res = self._solver.check(
-            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal - 1])
-        return res
-        # TODO @sj this is also an issue
-        # res = self._solver.check_conditional_constraints(self._grid[i][j][tryVal - 1] == False, condition=self._no_num)
-        # res = self._solver.check_conditional_constraints(self._grid[i][j] != self._constants[tryVal - 1],
-        #                                                  condition=z3.Not(self._no_num))
-
-    def add_constaint(self, i, j, tryVal):
-        self._nums[i][j] = int(tryVal)
-        if self._no_num:
-            constraint = self._grid[i][j][tryVal - 1]
-        else:
-            constraint = self._grid[i][j] == tryVal
-
-        self._solver.add_conditional_constraint(self._grid[i][j][tryVal - 1],condition=self._no_num)
-        self._solver.add_conditional_constraint(self._grid[i][j] == tryVal,condition=z3.Not(self._no_num))
-
-    def add_not_equal_constraint(self, i, j, tryVal):
-        self._solver.add_conditional_constraint(self._grid[i][j][tryVal - 1] == False, condition=self._no_num)
-        self._solver.add_conditional_constraint(
-            self._grid[i][j][tryVal - 1] == False if self._no_num else self._grid[i][j] != self._constants[tryVal - 1])
-
-
-    def gen_solved_sudoku(self):
-        """
-        produce a solved FULL sudoku
-        --Replacement: solving_sudoku function
-
-        :return: 2D list of a solved FULL sudoku
-        """
-        self.load_constraints()
-        if self._per_col:
-            # Fill by index
-            for i in range(9):
-                # print(f"Filling row {i}")
-                if i == 0 and self._prefill:
-                    testlst = [k for k in range(1, 10)]
-                    random.shuffle(testlst)
-                for j in range(9):
-                    if self._nums[i][j] != 0:
-                        continue
-                    if i == 0 and self._prefill:
-                        tryVal = testlst.pop()
-                        check = z3.sat
-                    else:
-                        x = [k for k in range(1, 10)]
-                        random.shuffle(x)
-                        tryVal = x.pop()
-                        check = self.check_condition(i, j, tryVal)
-                    while check != z3.sat:
-                        if check is None:
-                            raise "ERROR, check is not assigned properly"
-                        if check == z3.unknown:
-                            s_new = self.new_solver()
-                            check = s_new.check_condition(i, j, tryVal)
-
-                            # Record to log path
-                            if self._hard_smt_logPath:
-                                self.write_to_smt_and_sudoku_file((i, j), tryVal, check)
-                            else:
-                                print("TimeOut and a logPath is not provided")
-
-                            if check == z3.unknown:
-                                raise 'Timeout happened twice, don\'t know how to continue!'
-                            elif self._verbose:
-                                print(f'unsolvable problem was {check} for ({i},{j}) is {tryVal}')
-                        else:  # check == z3.unsat
-                            assert (check == z3.unsat)
-                            if len(x) == 0:
-                                print(f'check: {check} {i},{j},{tryVal}')
-                                print(f'Current row: {self._nums}')
-                                raise 'Tried all values, no luck, check gen_solved_sudoku'
-                            tryVal = x.pop()
-                            check = self.check_condition(i, j, tryVal)
-                    self._nums[i][j] = int(tryVal)
-                    if self._no_num:
-                        self._solver.add_conditional_constraint(self._grid[i][j][tryVal - 1])
-                    else:
-                        self._solver.add_conditional_constraint(self._grid[i][j] == self._constants[tryVal - 1])
-
-                if self._verbose:
-                    print(f'Finished with row {i} and filled \n {self._nums[i]}')
-        else:  # not per_col
-            # Start by filling the number 1,2,3...9
-            for num in range(1, 10):
-                if self._verbose:
-                    print(f'Filling number {num}')
-                if num == 9:
-                    for r in range(9):
-                        for c in range(9):
-                            if self._nums[r][c] == 0:
-                                self._nums[r][c] = int(num)
-                                if self._no_num:
-                                    self._solver.add_conditional_constraint(self._grid[r][c][num - 1])
-                                else:
-                                    self._solver.add_conditional_constraint(self._grid[r][c] == int(num))
-                else:
-                    cols = [i for i in range(9)]
-                    for r in range(9):
-                        random.shuffle(cols)
-                        for c in cols:
-                            # prefill num = 1s
-                            if num == 1 and self._prefill:
-                                if self._nums[r][c] == 0:
-                                    self.add_constaint(r, c, num)
-                                    self._nums[r][c] = num
-                                    cols.remove(c)
-                                    break
-                                elif self._nums[r][c] == num:
-                                    cols.remove(c)
-                                    break
-                            if self._nums[r][c] == 0:
-                                condition = self.check_condition(r, c, num)
-                                if condition == z3.sat:
-                                    self.add_constaint(r, c, num)
-                                    cols.remove(c)
-                                    self._nums[r][c] = num
-                                    break
-                                else:
-                                    if condition == z3.unknown:
-                                        s_new = self.new_solver()
-                                        check = s_new.check_condition(r, c, num)
-
-                                        if self._hard_smt_logPath:
-                                            self.write_to_smt_and_sudoku_file((r, c), num, check)
-                                        else:
-                                            print("TimeOut and a logPath is not provided")
-
-                                        if check == z3.unknown:
-                                            raise 'Timeout happened twice, don\'t know how to continue!'
-                                        elif self._verbose:
-                                            print(f'unsolvable problem was {check} for ({r},{c}) is {num}')
-                                        if check == z3.sat:
-                                            self.add_constaint(r, c, num)
-                                            # self._solver.add(condition)
-                                            cols.remove(c)
-                                            break
-
-                            elif self._nums[r][c] == num:
-                                cols.remove(c)
-                                break
-        if self._verbose:
-            print("Generated a solved sudoku")
-            print(self._nums)
-        return self._nums, self._penalty
-
-    def solve_and_generate_smt2(self, output_file):
-
-        nums, penalty = self.gen_solved_sudoku()
-
-        if nums is not None:
-            print("Sudoku solved successfully!")
-            print("Solution:")
-            for row in nums:
-                print(row)
-        else:
-            print("Sudoku has no solution.")
-
-        print(f"SMT2 file generated: {output_file}")
-        return self._solver.generate_smtlib(output_file)
-
-    def write_to_smt_and_sudoku_file(self, pos, value, sat):
-        """Write self._solver as a smt file to _log_path
-
-        When reading the constraints:
-        t = z3.Solver()
-        t.from_file(_log_path)
-        print(t, t.check())
-        """
-        # check directory exist
-        par_dir = Path(self._hard_smt_logPath).parent
-        if not os.path.exists(par_dir):
-            os.makedirs(par_dir)
-        time_str = time.strftime("%m_%d_%H_%M_%S") + str(time.time())  # making sure no repetition in file name
-        # record as smt file
-        with open(self._hard_smt_logPath + time_str, 'w') as myfile:
-            print(self._solver.to_smt2(), file=myfile)
-
-        # check directory exist
-        par_dir = Path(self._hard_sudoku_logPath).parent
-        if not os.path.exists(par_dir):
-            os.makedirs(par_dir)
-        # record sudoku as string file
-        with open(self._hard_sudoku_logPath, 'a+') as myfile:
-            sudoku_lst = ''.join(str(ele) for rows in self._nums for ele in rows)
-            print(f'{sudoku_lst}\t{self.condition_tpl}\t{pos}\t{value}\t{sat}\n', file=myfile)
-
-    def generate_smt_with_additional_constraint(self, index: (int, int), try_val: int, is_sat: bool,
-                                                smt_dir: str) -> str:
-        """
-        Add an additional constraint to the Sudoku problem, generate an SMT file, and return the file path.
-
-        :param index: Tuple (row, column) of the cell for the additional constraint.
-        :param try_val: The value to assign or not assign at the given index.
-        :param is_sat: If True, the cell at index should be try_val; if False, it should not be try_val.
-        :param smt_dir: Directory to store the generated SMT file.
-        :return: The path to the generated SMT file.
-        """
-        self.load_constraints()
-
-        # Add the specific condition for the cell at 'index'
-        i, j = index
-        if is_sat:
-            self.add_constaint(i, j, try_val)
-        else:
-            self.add_not_equal_constraint(i, j, try_val)
-
-        # Generate the file path for the SMT file
-        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
-        file_path = os.path.join(smt_dir, file_name)
-
-        # Write the SMT-LIB representation to the file
-        with open(file_path, 'w') as smt_file:
-            smt_file.write(self._solver.to_smt2())
-
-        return file_path
-
-
-def generate_puzzle(solved_sudokus, classic: bool, distinct: bool, per_col: bool, no_num: bool, prefill: bool, seed,
-                    log_path="", print_progress=False):
-    """
-    Generates puzzle with holes
-
-    :param print_progress:
-    :param log_path:
-    :param solved_sudokus: MUST BE a 3D list
-    :param classic:
-    :param distinct:
-    :return: [[time_rec], [penalty_lst]] list of lists
-    """
-    time_rec = []
-    penalty_lst = []
-    for puzzle in solved_sudokus:
-        if print_progress:
-            print(f'Solving puzzle: ')
-            print(puzzle)
-        st = time.time()
-        penalty = 0
-        for i in range(9):
-            for j in range(9):
-                s = Sudoku(puzzle.reshape(-1), classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path,
-                           seed=seed)
-                removable, temp_penalty = s.removable(i, j, puzzle[i][j])
-                if removable:
-                    puzzle[i][j] = 0
-                penalty += temp_penalty
-        et = time.time()
-        time_rec.append(et - st)
-        penalty_lst.append(penalty)
-        print('Successfully generated one puzzle')
-        # **** REMOVE
-        print(puzzle)
-    # **** REMOVE
-    # np.save('sudoku_puzzle', solved_sudokus)
-    assert len(time_rec) == len(penalty_lst), "Bug in generate_puzzle"
-
-    return time_rec, penalty_lst
-
-
-def pure_constraints(classic: bool, distinct: bool, per_col: bool, no_num: bool, prefill: bool, seed, num_iter=1,
-                     log_path="logFile"):
-    empty_list = [0 for i in range(9) for j in range(9)]
-    s = Sudoku(empty_list, classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path, seed=seed)
-    raise "This function needs additional modification to generate_smt2_file"
-    s.generate_smt2_file("./output.smt2")
-
-
-def gen_solve_sudoku(classic: bool, distinct: bool, per_col: bool, no_num: bool, prefill: bool, seed, num_iter=1,
-                     log_path="logFile"):
-    '''
-    First creates a solved sudoku, then generate a sudoku puzzle. returns time for each
-
-    :param prefill:
-    :param classic:
-    :param distinct:
-    :param per_col:
-    :param no_num:
-    :param num_iter:
-    :return: (solve_time, solve_penalty, gen_time, gen_penalty) all are 1D lists
-    '''
-    ret_solve_time = []
-    store_solved_sudoku = []
-    solve_penalty = []
-    for i in range(num_iter):
-        empty_list = [0 for i in range(9) for j in range(9)]
-        st = time.time()
-        s = Sudoku(empty_list, classic, distinct, per_col, no_num, prefill, hard_smt_logPath=log_path, seed=seed)
-        nums, penalty = s.gen_solved_sudoku()
-        et = time.time()
-        store_solved_sudoku.append(nums)
-        ret_solve_time.append(et - st)
-        solve_penalty.append(penalty)
-    # np.save('solved_sudoku', store_solved_sudoku)
-    store_holes = deepcopy(store_solved_sudoku)
-    store_holes = np.array(store_holes)
-    print("Start generating puzzles")
-    ret_holes_time, holes_penalty = generate_puzzle(store_holes, classic, distinct, per_col, no_num, prefill, seed=seed)
-    assert len(ret_solve_time) == len(solve_penalty), "error in gen_solve_sudoku"
-    return ret_solve_time, solve_penalty, ret_holes_time, holes_penalty
-
-
-def append_list_to_file(file_path, lst: list[int]):
-    par_dir = Path(file_path).parent
-    if not os.path.exists(par_dir):
-        os.makedirs(par_dir)
-    with open(file_path, 'a+') as f:
-        f.write(str(lst) + "\n")
-
-
-def gen_full_sudoku(*constraints, seed, hard_smt_logPath='smt2_files/', store_sudoku_path="",
-                    hard_sudoku_logPath="") -> (
-        float, int):
-    """
-    append generated full sudoku to the designated path as a string
-
-    :param hard_smt_log_path:
-    :param constraints: classic, distinct, percol, no_num, prefill
-    :param store_sudoku_path:
-    :return: (time, penalty)
-    """
-    empty_list = [0 for i in range(9) for j in range(9)]
-    st = time.time()
-    s = Sudoku(empty_list, *constraints, hard_smt_logPath=hard_smt_logPath, hard_sudoku_logPath=hard_sudoku_logPath,
-               seed=seed)
-    nums, penalty = s.gen_solved_sudoku()
-    et = time.time()
-    # Write to file
-    append_list_to_file(store_sudoku_path, sum(nums, []))  # flatten 2D nums into 1D
-    return et - st, penalty
-
-
-def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logPath='smt2_files/', store_sudoku_path="",
-                     hard_sudoku_logPath="", print_progress=False):
-    """
-    Reads sudokus as a string from store_sudoku_path
-    :param solved_sudoku: 1D list of an already solved sudoku grid
-    :param hard_instances_log_path:
-    :param constraints: classic, distinct, percol, no_num, prefill
-    :param store_sudoku_path:
-    :return: (time, penalty)
-    """
-    if print_progress:
-        print(f'Solving puzzle: ')
-        print(solved_sudoku)
-    st = time.time()
-    penalty = 0
-    for i in range(9):
-        for j in range(9):
-            s = Sudoku(solved_sudoku, *constraints, hard_smt_logPath=hard_smt_logPath,
-                       hard_sudoku_logPath=hard_sudoku_logPath, seed=seed)
-            removable, temp_penalty = s.removable(i, j, solved_sudoku[i * 9 + j])
-            if removable:
-                solved_sudoku[i * 9 + j] = 0
-            penalty += temp_penalty
-    et = time.time()
-    time_rec = et - st
-
-    if print_progress:
-        print('Successfully generated one puzzle')
-        print(solved_sudoku)
-    # np.save('sudoku_puzzle', solved_sudokus)
-    append_list_to_file(store_sudoku_path, solved_sudoku)
-    return time_rec, penalty
-
-
-def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), try_val: int, is_sat: str,
-                          seed: float) -> (int, int):
-    """
-
-    :param sudoku_grid:
-    :param condition:
-    :param index:
-    :param try_val:
-    :param is_sat:
-    :return: (time,penalty)
-    """
-    s = Sudoku(sudoku_grid, *condition, seed=seed)
-    s.load_constraints()
-    start = time.time()
-    penalty = 0
-    if is_sat:
-        if z3.unknown == s.check_condition(index[0], index[1], try_val):
-            penalty = 1
-
-    else:
-        if z3.unknown == s.check_not_removable(index[0], index[1], try_val):
-            penalty = 1
-    end = time.time()
-    return end - start, penalty
-
-
-def generate_smt(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str,
-                 seed: float) -> str:
-    """
-    Add an additional constraint to the Sudoku problem, generate an SMT file, and return the file path.
-    :param index: Tuple (row, column) of the cell for the additional constraint.
-    :param try_val: The value to assign or not assign at the given index.
-    :param is_sat: If True, the cell at index should be try_val; if False, it should not be try_val.
-    :param smt_dir: Directory to store the generated SMT file.
-    :return: The path to the generated SMT file.
-    """
-    solver = Sudoku(list(map(int, (grid))), *constraint, seed=seed)
-    file_path = solver.generate_smt_with_additional_constraint(index, try_val, is_sat, smt_dir)
-
+from typing import List, Hashable
+
+from src.Sudokus import Sudoku
+
+FULL_CONDITIONS = [(classic, distinct, percol, nonum, prefill)  # must be hashable
+                   for classic in (True, False)
+                   for distinct in (True, False)
+                   for percol in (True, False)
+                   for nonum in (True, False) if not (distinct and nonum)
+                   for prefill in (True, False)]
+assert isinstance(FULL_CONDITIONS[0], Hashable), "Conditions MUST be HASHABLE"
+SOLVER_LIST = ("z3", "cvc5")
+
+
+# Remember to reset the dict in curr_line_of_solving_full_sudokus.txt if the file exist
+
+
+def write_file(condition_name, arr_time):
+    file_path = condition_name + "-" + time.strftime("%Y_%m_%d_%H_%M_%S")
+    with zipfile.ZipFile(f'../{file_path}.zip', 'w') as my_zip:
+        files = os.listdir('ArgyleSudoku/Sudoku')
+        for f in files:
+            my_zip.write(f)
+        with my_zip.open(f"{condition_name}.txt", "w") as new_hello:
+            new_hello.write(bytes(f'{arr_time}', 'utf-8'))
+
+
+def to_str(bool_list) -> str:
+    if len(bool_list) == 6:
+        return ''.join(("classic-" if bool_list[0] else "argyle-",
+                        "distinct-" if bool_list[1] else "PbEq-",
+                        "percol-" if bool_list[2] else "inorder-",
+                        "is_bool-" if bool_list[3] else "is_num-",
+                        "prefill-" if bool_list[4] else "no_prefill-",
+                        "gen_time" if bool_list[5] else "solve_time"))
+    if len(bool_list) == 5:
+        return ''.join(("classic-" if bool_list[0] else "argyle-",
+                        "distinct-" if bool_list[1] else "PbEq-",
+                        "percol-" if bool_list[2] else "inorder-",
+                        "is_bool-" if bool_list[3] else "is_num-",
+                        "prefill-" if bool_list[4] else "no_prefill-"))
+
+
+def to_bool(condition_str: str) -> list[bool]:
+    condition_lst = condition_str.split('-')
+    assert len(condition_lst) >= 4, "Cannot convert condition string"
+    if len(condition_lst) == 4:
+        return [True if condition_lst[0].lower() == "classic" else False,
+                True if condition_lst[1].lower() == "distinct" else False,
+                True if condition_lst[2].lower() == "percol" else False,
+                True if condition_lst[3].lower() == "is_bool" else False,
+                True if condition_lst[4].lower() == "prefill" else False,
+                True if condition_lst[5].lower() == "gen_time" else False]
+    pass
+
+def generate_smt2_filename(problem_type, constraint):
+    return f"{problem_type}-{constraint}-{time.time()}.smt2"
+
+def save_smt2_file(smt2_str, filename, directory="problems_instances/whole_problem_records/smt2_files"):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    file_path = os.path.join(directory, filename)
+    with open(file_path, 'w') as file:
+        file.write(smt2_str)
     return file_path
 
-
-if __name__ == "__main__":
-    # Test classic case
-    # classic, distinct, per_col, no_num
-    # solve_time, solve_penalty, gen_time, gen_penalty = gen_solve_sudoku(False, True, True,
-    #                                                                     False, True, num_iter=100,
-    #                                                                     log_path='DataCollection/')
-    # pure_constraints(classic=True, distinct=False, per_col=True, no_num=False, prefill=True, num_iter=2,seed=4321)
-    # print(gen_solve_sudoku(classic=True, distinct=False, per_col=True, no_num=False, prefill=True, num_iter=2,seed=4321
-    #                        ))
-
-    # empty_list = [0 for i in range(9) for j in range(9)]
-    # s = Sudoku(empty_list, classic=False, distinct=True, per_col=True, no_num=False, log_path="DataCollection/")
-    # s.gen_solved_sudoku()
-
-    # store_holes = np.load('solved_sudoku.npy')
-    # ret_holes_time = generate_puzzle(store_holes, True, True, False, False)
-    empty_list = [0 for i in range(9) for j in range(9)]
-    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
-               distinct_digits=True)
-    smt_str = s.solve_and_generate_smt2("my-smt.smt2")
-
-    print("Process finished")
-
-# fill when grid is almost full
-# check the time to fill the grid when it's almost full
-
-# helper to rerun experiment
+def update_mapping(mapping_file_path, grid, constraint, smt2_file_path):
+    mapping_dict = {
+        "problem": {
+            "grid": grid,
+        },
+        constraint: {
+            "smt_path": smt2_file_path,
+        }
+    }
 
 
-# s = SolverFor("QF_LIA")
+def run_experiment_once(single_condition: bool, *args,
+                        start_condition: List[bool] = [],
+                        start_from_next: bool = False,
+                        curr_line_path: str = '../sudoku_database/curr_line_of_solving_full_sudokus.txt',
+                        classic_full_path: str = '../sudoku_database/classic_full_sudokus.txt',
+                        argyle_full_path: str = '../sudoku_database/argyle_full_sudokus.txt',
+                        classic_holes_path: str = '../sudoku_database/classic_holes_sudokus.txt',
+                        argyle_holes_path: str = '../sudoku_database/argyle_holes_sudokus.txt',
+                        hard_sudoku_dir: str = "../../problems_instances/particular_hard_instances_records/txt_files/",
+                        time_record_dir: str = '../time-record/whole_problem_time_records',
+                        hard_smt_logPath: str = '',
+                        verbose: bool = False):
+    """
+    Generate full sudokus and holes sudokus under different constraints and store the time to a specific location.
+
+    Args:
+        single_condition (bool): If True, only the start_condition is used. If False, all conditions are used.
+        *args: Additional arguments passed to the function.
+        start_condition (List[bool]): The starting condition. If empty, all conditions are used.
+        start_from_next (bool): If True, starts from the next condition after start_condition.
+        curr_line_path (str): Path to the file storing the current line of solving full sudokus.
+        classic_full_path (str): Path to the file storing classic full sudokus.
+        argyle_full_path (str): Path to the file storing argyle full sudokus.
+        classic_holes_path (str): Path to the file storing classic holes sudokus.
+        argyle_holes_path (str): Path to the file storing argyle holes sudokus.
+        hard_sudoku_dir (str): Directory path for storing hard sudoku instances.
+        time_record_dir (str): Directory path for storing time records.
+        hard_smt_logPath (str): Path for storing hard SMT logs.
+        verbose (bool): If True, prints verbose output.
+
+    Returns:
+        None
+    """
+    try:
+        with open(curr_line_path, 'r') as f:
+            curr_line = eval(f.readline())
+    except IOError:
+        curr_line = {}  # Keep track of which full sudoku to continue_reading with
+
+    if single_condition:
+        conditions = [start_condition]
+    else:
+        conditions = FULL_CONDITIONS
+        if start_condition:
+            conditions = conditions[conditions.index(tuple(start_condition)) + start_from_next:]
+
+    seed = time.time()
+    print(f'Generating full sudokus: \n'
+          f'{"-" * len(conditions)}Total Conditions: {len(conditions)}')
+    for condition in conditions:
+        if condition[0]:
+            full_sudoku_path = classic_full_path
+            hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_classic_instances.txt')
+        else:
+            full_sudoku_path = argyle_full_path
+            hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_argyle_instance.txt')
+
+        condition_name = to_str(condition) + 'full_time'
+        print('-', end="")
+
+        full_time, full_penalty = Sudoku.gen_full_sudoku(*condition, hard_smt_logPath=hard_smt_logPath,
+                                                         hard_sudoku_logPath=hard_sudoku_path,
+                                                         store_sudoku_path=full_sudoku_path, seed=seed)
+        with open(os.path.join(time_record_dir, condition_name + '.txt'), 'a') as f:
+            os.makedirs(time_record_dir, exist_ok=True)
+            f.write(f'{full_time},{full_penalty}\n')
+
+    print("\nGenerating holes sudokus: \n"
+          f'{"-" * len(conditions)}Total Conditions: {len(conditions)}')
+
+    with open(classic_full_path, 'r') as f:
+        if classic_full_path in curr_line:
+            f.seek(curr_line[classic_full_path])
+        classic_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+    classic_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_classic_instances.txt')
+
+    with open(argyle_full_path, 'r') as f:
+        if argyle_full_path in curr_line:
+            f.seek(curr_line[argyle_full_path])
+        argyle_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+    argyle_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_argyle_instance.txt')
+
+    for condition in conditions:
+        if condition[0]:
+            sudoku_lst = classic_sudoku_lst
+            holes_sudoku_path = classic_holes_path
+            hard_sudoku_path = classic_hard_sudoku_path
+        else:
+            sudoku_lst = argyle_sudoku_lst
+            holes_sudoku_path = argyle_holes_path
+            hard_sudoku_path = argyle_hard_sudoku_path
+
+        condition_name = to_str(condition) + 'holes_time'
+        if verbose:
+            print(f'Processing holes sudoku {condition_name}')
+        print('-', end="")
+        holes_time, holes_penalty = Sudoku.gen_holes_sudoku(eval(sudoku_lst), *condition,
+                                                            hard_smt_logPath=hard_smt_logPath,
+                                                            hard_sudoku_logPath=hard_sudoku_path,
+                                                            store_sudoku_path=holes_sudoku_path, seed=seed)
+        if verbose:
+            print(f'\tTime taken: {holes_time}')
+        with open(os.path.join(time_record_dir, condition_name + '.txt'), 'a+') as f_holes:
+            f_holes.write(f'{holes_time},{holes_penalty}\n')
+
+    par_dir = Path(curr_line_path).parent
+    os.makedirs(par_dir, exist_ok=True)
+    with open(curr_line_path, 'w') as f:
+        f.truncate()
+        f.write(str(curr_line))
+    print("Ran experiment once")
 
 
-# full smt files
-# encode the numbers not as numbers, but as new constants
-# >= part distinct numbers -> add it---
-# ++++++++6666666
-# 66to the contraints variations
-# smt to string mapping
-# cache
-# write own smt strings from scratch
-# break the whole function into calling smaller functions
+def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
+    """
+    :param smt_log_file_path:
+    :param time_out: in seconds
+    :return:
+    """
+    start_time = time.time()
+    did_timeout = False
+    try:
+        result = subprocess.run(["z3", "-smt2", smt_log_file_path],
+                                capture_output=True, text=True, timeout=time_out)
+        combined_output = ((result.stdout if result.stdout is not None else "") +
+                           (result.stderr if result.stderr is not None else ""))  # capture all output
+    except subprocess.TimeoutExpired as exc:
+        did_timeout = True
+        result = exc
+    ans = "timeout"
+    end_time = time.time()
+
+    if not did_timeout:
+        if "unsat" in combined_output:
+            ans = "unsat"
+        elif "sat" in combined_output:
+            ans = "sat"
+        else:
+            ans = "unknown"
+    return (end_time - start_time, did_timeout, ans)
+
+
+def solve_with_cvc5(smt_log_file_path: str, time_out: int) -> (int, int, str):
+    start_time = time.time()
+    did_timeout = False
+    try:
+        result = subprocess.run(["../../solvers/cvc5-macOS-arm64", smt_log_file_path, "--lang", "smt2"],
+                                capture_output=True, text=True, timeout=time_out)
+        combined_output = ((result.stdout if result.stdout is not None else "") +
+                           (result.stderr if result.stderr is not None else ""))  # capture all output
+    except subprocess.TimeoutExpired as exc:
+        did_timeout = True
+        combined_output = ((exc.stdout.decode('utf-8') if exc.stdout else "") +
+                           (exc.stderr.decode('utf-8') if exc.stderr else ""))  # capture all output
+    ans = "timeout"
+
+    end_time = time.time()
+
+    # TODO this might not work. maybe some outputs are not in "sat" or "unsat"??
+    if not did_timeout:
+        if "unsat" in combined_output:
+            ans = "unsat"
+        elif "sat" in combined_output:
+            ans = "sat"
+        else:
+            ans = "unknown"
+    return (end_time - start_time, did_timeout, ans)
+
+
+def solve_with_yices(smt_log_file_path: str, time_out: int) -> (int, int, str):
+    start_time = time.time()
+    did_timeout = False
+    try:
+        result = subprocess.run(["yices", smt_log_file_path, "--lang", "smt2"],
+                                capture_output=True, text=True, timeout=time_out)
+        combined_output = ((result.stdout if result.stdout is not None else "") +
+                           (result.stderr if result.stderr is not None else ""))  # capture all output
+    except subprocess.TimeoutExpired as exc:
+        did_timeout = True
+        combined_output = ((exc.stdout.decode('utf-8') if exc.stdout else "") +
+                           (exc.stderr.decode('utf-8') if exc.stderr else ""))  # capture all output
+    ans = "timeout"
+
+    end_time = time.time()
+
+    # TODO this might not work. maybe some outputs are not in "sat" or "unsat"??
+    if not did_timeout:
+        if "unsat" in combined_output:
+            ans = "unsat"
+        elif "sat" in combined_output:
+            ans = "sat"
+        else:
+            ans = "unknown"
+    return end_time - start_time, did_timeout, ans
+
+
+def solve_with_solver(solver_name: str, smt_file_path, time_out=5) -> (int, int, str):
+    """
+    solve an smt file with particular solver
+    :param solver_name:
+    :param smt_file_path:
+    :return: (time, did_time_out)
+    """
+    if solver_name == 'z3':
+        return solve_with_z3(smt_file_path, time_out=time_out)
+    elif solver_name == 'cvc5':
+        return solve_with_cvc5(smt_file_path, time_out=time_out)
+    # Add more elif blocks for other solvers
+    raise ValueError(f"Unknown solver: {solver_name}, please implement the corresponding code")
+
+
+def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic: bool, num_iter: int,
+                                    currline_path="curr_instance_line.txt", timeout=5,
+                                    hard_smt_dir="../../problems_instances/particular_hard_instances_records/smt2_files/",
+                                    time_record_dir:str=""):
+    """
+    Writes a dictionary with {problem: , cond_1_time: , cond_2_time: cond_3_time: cond_4_time: ...}
+    Condition[0] MUST be TRUE when classic and FALSE when argyle
+    :param file_path:
+    :return: None
+    """
+    if not os.path.exists(hard_instances_txt_log_dir):
+        print(f"Provided directory does not exist, creating new directory: {hard_instances_txt_log_dir}")
+        os.makedirs(hard_instances_txt_log_dir)
+
+    if is_classic:
+        hard_instances_file_path = os.path.join(hard_instances_txt_log_dir, "hard_classic_instances.txt")
+        store_comparison_file_path = os.path.join(time_record_dir,"classic_time.txt")
+    else:
+        hard_instances_file_path = os.path.join(hard_instances_txt_log_dir, "hard_argyle_instance.txt")
+        store_comparison_file_path = os.path.join(time_record_dir,"argyle_time.txt")
+
+    with open(hard_instances_file_path, 'r+') as fr:
+        with open(currline_path, "r") as ftempr:
+            argyle_and_classic_time_dict = ftempr.readline()
+            if argyle_and_classic_time_dict == '':
+                argyle_and_classic_time_dict = {"classic": 0, "argyle": 0, "seed": 40}
+            else:
+                argyle_and_classic_time_dict = eval(argyle_and_classic_time_dict)
+        curr_line_num: int = argyle_and_classic_time_dict.get("classic" if is_classic else "argyle", 0)
+        argyle_and_classic_time_dict[
+            "classic" if is_classic else "argyle"] += curr_line_num + num_iter  # record read lines up till now
+
+        # skip current line numbers
+        for _ in range(curr_line_num):
+            fr.readline()
+
+        for _ in range(num_iter):
+            line_to_solve = fr.readline().strip()
+            if not line_to_solve:
+                print("Not enough hard instances for experiment/Encountered an empty new line\n\n\n")
+            store_result_dict = {}
+            try:
+                tgrid, tcondition, tindex, ttry_Val, tis_sat = line_to_solve.split("\t")
+            except ValueError:
+                continue
+            tcondition = eval(tcondition)
+
+            # store problem and smt path
+            store_result_dict["problem"] = {
+                "grid": tgrid,
+                "index": eval(tindex),
+                "try_Val": eval(ttry_Val),
+                "is_sat": tis_sat == "sat"
+            }
+            seed = time.time()
+            # solve with other conditions
+            CorAconditions = [ele for ele in FULL_CONDITIONS if ele[0] == tcondition[0]]
+            for CorAcondition in CorAconditions:
+                if (CorAcondition) not in store_result_dict:
+                    store_result_dict[CorAcondition] = {}  # initialize the dictionary
+                if "smt_path" not in store_result_dict[CorAcondition]:
+                    single_condition_smt_path = Sudoku.generate_smt_for_particular_instance(store_result_dict["problem"]["grid"],
+                                                                                            CorAcondition,
+                                                                                            store_result_dict["problem"]["index"],
+                                                                                            store_result_dict["problem"]["try_Val"],
+                                                                                            store_result_dict["problem"]["is_sat"],
+                                                                                            smt_dir=hard_smt_dir,seed=seed)
+                    store_result_dict[CorAcondition]["smt_path"] = single_condition_smt_path
+                else:
+                    single_condition_smt_path = store_result_dict["smt_path"]
+
+                for SOLVER in SOLVER_LIST:
+                    instances_lst = store_result_dict[CorAcondition].get(SOLVER, [])
+                    instances_lst.append(solve_with_solver(SOLVER, single_condition_smt_path, time_out=timeout))
+                    store_result_dict[CorAcondition][SOLVER] = instances_lst
+
+            # write time dictionary to file
+            with open(store_comparison_file_path, 'a+') as fw:
+                fw.write(str(store_result_dict) + '\n')
+        with open(currline_path, 'w') as fw:
+            fw.truncate()
+            fw.write(str(argyle_and_classic_time_dict))
+
+
+def record_whole_problem_performance(num_iter: int=1,
+                                     timeout=5,
+                                     smt_log_dir="../../problems_instances/whole_problem_records/smt2_files/",
+                                     time_record_dir: str = ""
+                                     ):
+    seed = time.time()
+
+    time_record_whole_problem_dir = os.path.join(time_record_dir,"whole_problem_time_records")
+    if not os.path.exists(time_record_whole_problem_dir):
+        print(f"Provided directory does not exist, creating new directory: {time_record_whole_problem_dir}")
+        os.makedirs(time_record_whole_problem_dir)
+    store_time_comparison_path = os.path.join(time_record_whole_problem_dir,"time.txt")
+
+    # Iterate through all possible condition combinations
+    for _ in range(num_iter):
+        store_result_dict = {}
+        empty_list = [0 for i in range(9) for j in range(9)]
+
+        store_result_dict["problem"] = {
+            "grid": str(empty_list)
+        }
+        # iterate through possible combinations
+        for condition in FULL_CONDITIONS:
+            for single_condition in FULL_CONDITIONS:
+                if single_condition not in store_result_dict:
+                    store_result_dict[single_condition] = {}
+                if "smt_path" not in store_result_dict[single_condition]:
+                    # generate the smt file corresponding to the problem
+                    s_full = Sudoku.Sudoku(empty_list,*condition,seed=seed)
+                    single_condition_smt_path = s_full.gen_full_and_write_smt2_to_file(smt_dir=smt_log_dir) # write
+                    store_result_dict[single_condition]["smt_path"] = single_condition_smt_path
+                else:
+                    single_condition_smt_path = store_result_dict[single_condition]["smt_path"]
+
+                # launch multiple solvesr
+                for SOLVER in SOLVER_LIST:
+                    instances_lst = store_result_dict[single_condition].get(SOLVER, [])
+                    instances_lst.append(solve_with_solver(SOLVER, single_condition_smt_path, time_out=timeout))
+                    store_result_dict[single_condition][SOLVER] = instances_lst
+                with open(store_time_comparison_path, 'a+') as fw:
+                    fw.write(str(store_result_dict) + '\n')
+    # TODO: @sj Cannot implement this for holes
+
+            # Generate holes sudoku, to be implemented
+            #
+            # s_holes = Sudoku(s_full._nums, *condition, seed=seed)
+            # smt_str_holes = s_holes.generate_holes_smt2(os.path.join(hard_smt_dir, f"holes_{to_str(condition)}.smt2"))
+            #
+            # # Record the performance of different solvers for generating holes sudoku
+            # for SOLVER in SOLVER_LIST:
+            #     holes_time, holes_timeout, holes_result = solve_with_solver(SOLVER, smt_str_holes, time_out=timeout)
+            #     # Record the results
+            #     # ...
+
+
+
+if __name__ == '__main__':
+    # dictionary of file paths to feed into `run_experiment`
+    TIME_OUT = 5
+    # dct = {"curr_line_path": '../../sudoku_database/curr_line_of_solving_full_sudokus.txt',
+    #        "classic_full_path": '../../sudoku_database/classic_full_sudokus.txt',
+    #        "argyle_full_path": '../../sudoku_database/argyle_full_sudokus.txt',
+    #        "classic_holes_path": '../../sudoku_database/classic_holes_sudokus.txt',
+    #        "argyle_holes_path": "../../sudoku_database/argyle_holes_sudokus.txt",
+    #        "hard_sudoku_dir": "../../problems_instances/particular_hard_instances_records/txt_files/",
+    #        "time_record_dir": '../../time-record/whole_problem_time_records/',
+    #        "hard_smt_logPath": '../../problems_instances/particular_hard_instances_records/smt2_files/'}
+    #
+    # # # Left off with argyle-distinct-inorder-is_num-no_prefill-full_timeTotal
+    # #
+    # time_record_dir = "../../time-record/particular_hard_instance_time_record/"
+    # currline_path = "../../problems_instances/particular_hard_instances_records/txt_files/curr_instance_line.txt"
+    # hard_instances_txt_log_dir = "../../problems_instances/particular_hard_instances_records/txt_files/"
+    # # load_and_alternative_solve(hard_instances_time_record_dir, is_classic=True, num_iter=10,
+    # #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
+    # load_and_alternative_solve_hard(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=False, num_iter=1,
+    #                                 currline_path=currline_path, timeout=TIME_OUT)
+    record_whole_problem_performance(time_record_dir="../../time-record/",timeout=30)
+    # for i in range(1):
+    #     run_experiment_once(False,
+    #                         **dct
+    #                         )
+    # run_experiment(single_condition=False, full_iter=20, holes_iter=20,
+    #                total_time_per_condition=1 * 60 * 1000)
+    # run_experiment(True, [False, False, True, True, True], run_full=True, run_holes=False, full_iter=1000,
+    #                total_time_per_condition = 5 * 60 * 10000000)
+
+    print("Process Complete")
+
+# specify timeout for python subprocesses
+# don't tell time limit
+# record timeout despite the output.
+# exceptions
+
+
+
+
+
+# percentages of timeout
+# stack the time for each constraint together, and use percentages
+# arr in latex
+
+# more solvers

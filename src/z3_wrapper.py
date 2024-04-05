@@ -53,8 +53,7 @@ class Solver2SMT(z3.Solver):
             self.__assertions.append((conditional_constraint, condition))
         s = z3.Solver()
         s.add(self.__global_constraints)
-        for _, condition in self.__assertions:
-            s.add(condition)
+
         if s.check() != z3.sat:
             raise "There is no way to satisfy all condition variables provided under global constraint"
 
@@ -63,11 +62,10 @@ class Solver2SMT(z3.Solver):
         s.add(self.__global_constraints)
 
         # temporarily add the constraint and conditional constraint to be checked.
-        self.__assertions.append((args, condition))
-        conditional_expressions = [cond for (_, cond) in self.__assertions]
-        for expr in conditional_expressions:
-            s.add(expr)
+        if args: # append the checked condition
+            self.__assertions.append((args, condition))
 
+        print(self.__assertions)
         if s.check() == z3.sat:
             # possible combination of condition variables
             model = s.model()
@@ -75,13 +73,14 @@ class Solver2SMT(z3.Solver):
             # solve under s.model() and record the smt file
             solver_with_conditional_constraint = Solver2SMT()
             # TODO, not really necessary, believe I can remove this @sj
-            solver_with_conditional_constraint.add_global_constraints(self.__global_constraints)
+            # solver_with_conditional_constraint.add_global_constraints(self.__global_constraints)
 
             # add corresponding conditional constraints and try to solve
             for (conditional_constraint, condition) in self.__assertions:
                 if condition == z3.BoolVal(True) or model.eval(condition):
                     if self.__start_recording:
                         self.__history.append(("add", str(conditional_constraint.sexpr())))
+                    print(f"Added constraint {conditional_constraint} with condition: {condition}")
                     solver_with_conditional_constraint.add(conditional_constraint)
 
             # Don't really record the smt files
@@ -101,7 +100,8 @@ class Solver2SMT(z3.Solver):
                 self.__latest_solvers_results = run_solvers.run_solvers("conditional_constraints.smt2")
 
             # pop the temporarily added conditional constraints
-            self.__assertions.pop()
+            if args:
+                self.__assertions.pop()
 
             if self.__start_recording:
                 self.__history.append(("result", str(solver_with_conditional_constraint.check(*args))))
@@ -169,5 +169,22 @@ class Solver2SMT(z3.Solver):
         return smt_str
 
 if __name__ == '__main__':
-    print("Started")
-    run_solvers.run_z3("./temp.txt")
+    solver = Solver2SMT()
+
+    x = z3.Int('x')
+    y = z3.Int('y')
+
+    solver.add(x > 0)
+    solver.add(y > 0)
+
+    condition1 = z3.Bool('condition1')
+    condition2 = z3.Bool('condition2')
+
+    solver.add_global_constraints(z3.Or(condition1, condition2))
+
+    solver.add_conditional_constraint(x > 5, condition=condition1)
+    solver.add_conditional_constraint(x < 5, condition=condition2)
+
+    solver.start_recording()
+    result = solver.check_conditional_constraints()
+    print(result)
