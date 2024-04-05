@@ -1,5 +1,7 @@
 import itertools
 import os.path
+import warnings
+
 # import src.SMTs.SMTs as z3  # if this fails, run 'python -m pip install z3-solver'
 # import src.SMTs.SMTs as z3
 import z3
@@ -28,7 +30,7 @@ class Sudoku:
     _hard_sudoku_logPath = None
 
     def __init__(self, sudoku_array: List[int], classic: bool, distinct: bool, per_col: bool, no_num: bool,
-                 prefill: bool, seed, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=False
+                 prefill: bool, seed=0, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=False
                  ):
         """
         Only write a logFile when a path is provided
@@ -390,20 +392,28 @@ class Sudoku:
             print(self._nums)
         return self._nums, self._penalty
 
-    def solve_and_generate_smt2(self, output_file):
-
+    def gen_full_and_write_smt2_to_file(self, smt_dir):
+        """
+        return: generated smt2 file_path
+        """
         nums, penalty = self.gen_full_sudoku()
 
-        if nums is not None:
-            print("Sudoku solved successfully!")
-            print("Solution:")
-            for row in nums:
-                print(row)
-        else:
-            print("Sudoku has no solution.")
+        if self._verbose:
+            if nums is not None:
+                print("Sudoku solved successfully!")
+                print("Solution:")
+                for row in nums:
+                    print(row)
+            else:
+                warnings.warn(f"Unable to generate a full sudoku and the corresponding smt2 file, the current sudoku is: {self._nums}")
 
-        print(f"SMT2 file generated: {output_file}")
-        return self._solver.generate_smtlib(output_file)
+        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
+        file_path = os.path.join(smt_dir, file_name)
+        with open(file_path,'w') as f:
+            f.write(self._solver.generate_smtlib())
+        if self._verbose:
+            print(f"SMT2 file generated at : {file_path}")
+        return file_path
 
     def write_to_smt_and_sudoku_file(self, pos, value, sat):
         """Write self._solver as a smt file to _log_path
@@ -576,7 +586,7 @@ def gen_full_sudoku(*constraints, seed, hard_smt_logPath='smt2_files/', store_su
 
 
 def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logPath='smt2_files/', store_sudoku_path="",
-                     hard_sudoku_logPath="", print_progress=False):
+                     hard_sudoku_logPath="", verbose=False):
     """
     Reads sudokus as a string from store_sudoku_path
     :param solved_sudoku: 1D list of an already solved sudoku grid
@@ -585,7 +595,7 @@ def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logP
     :param store_sudoku_path:
     :return: (time, penalty)
     """
-    if print_progress:
+    if verbose:
         print(f'Solving puzzle: ')
         print(solved_sudoku)
     st = time.time()
@@ -601,12 +611,29 @@ def gen_holes_sudoku(solved_sudoku: list[int], *constraints, seed, hard_smt_logP
     et = time.time()
     time_rec = et - st
 
-    if print_progress:
+    if verbose:
         print('Successfully generated one puzzle')
         print(solved_sudoku)
     # np.save('sudoku_puzzle', solved_sudokus)
     append_list_to_file(store_sudoku_path, solved_sudoku)
     return time_rec, penalty
+
+
+# def gen_holes_and_write_smt2_to_file(solved_sudoku,constraints,smt_log_dir="",seed):
+#     """
+#     return: smt path to the corresponding holes problem smt2 file
+#     """
+#     for i in range(9):
+#         for j in range(9):
+#             s = Sudoku(solved_sudoku, *constraints, hard_smt_logPath="",
+#                        hard_sudoku_logPath="", seed=seed) # don't want to log smt or sudoku
+#             removable, temp_penalty = s.removable(i, j, solved_sudoku[i * 9 + j])
+#             if removable:
+#                 solved_sudoku[i * 9 + j] = 0
+#     file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
+#     file_path = os.path.join(smt_log_dir, file_name)
+#     with open(file_path, 'w') as f:
+#         f.write(s.generate_smt2_file())
 
 
 def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), try_val: int, is_sat: str,
@@ -635,8 +662,7 @@ def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), 
     return end - start, penalty
 
 
-def generate_smt_for_particular_instance(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str,
-                                         seed: float) -> str:
+def generate_smt_for_particular_instance(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str,seed=0) -> str:
     """
     Add an additional constraint to the Sudoku problem, generate an SMT file, and return the file path.
     :param index: Tuple (row, column) of the cell for the additional constraint.
@@ -645,7 +671,7 @@ def generate_smt_for_particular_instance(grid: str, constraint: list, index: (in
     :param smt_dir: Directory to store the generated SMT file.
     :return: The path to the generated SMT file.
     """
-    solver = Sudoku(list(map(int, (grid))), *constraint, seed=seed)
+    solver = Sudoku(list(map(int, (grid))), *constraint,seed=seed)
     file_path = solver.generate_smt_with_additional_constraint(index, try_val, is_sat, smt_dir)
 
     return file_path
@@ -670,7 +696,7 @@ if __name__ == "__main__":
     empty_list = [0 for i in range(9) for j in range(9)]
     s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
                distinct_digits=True)
-    smt_str = s.solve_and_generate_smt2("my-smt.smt2")
+    smt_str = s.gen_full_and_write_smt2_to_file("my-smt.smt2")
 
     print("Process finished")
 

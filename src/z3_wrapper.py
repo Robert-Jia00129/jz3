@@ -148,7 +148,7 @@ class Solver2SMT(z3.Solver):
         initial_state = initial_state.rsplit("(check-sat)", 1)[0]
         self.__history.append(("initial_state", initial_state))
 
-    def generate_smtlib(self, filename):
+    def generate_smtlib(self):
         output = StringIO()
         output.write(f"(set-logic QF_LIA)\n")
         for operation in self.__history:
