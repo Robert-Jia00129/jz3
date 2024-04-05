@@ -44,7 +44,6 @@ class Solver2SMT(z3.Solver):
             for arg in args:
                 self.__history.append(("add", str(arg.sexpr())))
         super().add(*args)
-        self.add_global_constraints(*args)
 
     def add_conditional_constraint(self, *args, condition=z3.BoolVal(True)):
         if condition is None:
@@ -65,7 +64,6 @@ class Solver2SMT(z3.Solver):
         if args: # append the checked condition
             self.__assertions.append((args, condition))
 
-        print(self.__assertions)
         if s.check() == z3.sat:
             # possible combination of condition variables
             model = s.model()
@@ -80,7 +78,6 @@ class Solver2SMT(z3.Solver):
                 if condition == z3.BoolVal(True) or model.eval(condition):
                     if self.__start_recording:
                         self.__history.append(("add", str(conditional_constraint.sexpr())))
-                    print(f"Added constraint {conditional_constraint} with condition: {condition}")
                     solver_with_conditional_constraint.add(conditional_constraint)
 
             # Don't really record the smt files
@@ -168,7 +165,31 @@ class Solver2SMT(z3.Solver):
         output.close()
         return smt_str
 
-if __name__ == '__main__':
+
+def z3_distinct_pbeq_test():
+    solver = Solver2SMT()
+
+    # Define condition variables
+    distinct = z3.Bool('distinct')
+    pbeq = z3.Bool('pbeq')
+
+    # Add global constraints
+    solver.add_global_constraints(z3.Or(distinct, pbeq))
+
+    # Define Sudoku grid
+    grid = [[z3.Int(f'cell_{i}_{j}') for j in range(9)] for i in range(9)]
+
+    # Add classic Sudoku constraints
+    for row in grid:
+        solver.add_conditional_constraint(z3.Distinct(row), condition=distinct)
+        for num in range(1, 10):
+            solver.add_conditional_constraint(z3.PbEq([(cell == num, 1) for cell in row], 1), condition=pbeq)
+
+    # Check if the first cell can be zero
+    result = solver.check_conditional_constraints(grid[0][0] == 0)
+    print(result)
+
+def simple_test():
     solver = Solver2SMT()
 
     x = z3.Int('x')
@@ -188,3 +209,6 @@ if __name__ == '__main__':
     solver.start_recording()
     result = solver.check_conditional_constraints()
     print(result)
+
+if __name__ == '__main__':
+    z3_distinct_pbeq_test()
