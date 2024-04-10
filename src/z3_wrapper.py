@@ -92,29 +92,14 @@ class Solver2SMT(z3.Solver):
                 # find different combinations
                 opt = z3.Optimize()
                 opt.add(self.__global_constraints)
-
-                # First combination
-                opt.push()
-                # TODO @sj
-                opt.maximize(z3.Sum([z3.If(cond, 1, 0) for (_, cond) in self.__assertions]))
-                opt.check()
-                combination1 = opt.model()
-                opt.pop()
-
-                # Second combination
-                opt.push()
-                opt.minimize(z3.Sum([z3.If(cond, 1, 0) for (_, cond) in self.__assertions]))
-                opt.check()
-                combination2 = opt.model()
-                opt.pop()
-
-                for combination in [combination1, combination2]:
-                    # solve under s.model() and record the smt file
+                combinations = [model]
+                dist = 1
+                while dist > 0:
                     solver_with_conditional_constraint = Solver2SMT()
 
                     # add corresponding conditional constraints and try to solve
                     for (conditional_constraint, condition) in self.__assertions:
-                        if condition == z3.BoolVal(True) or model.eval(condition):
+                        if  model.eval(condition):
                             if self.__start_recording:
                                 self.__history.append(("add", str(conditional_constraint.sexpr())))
                             solver_with_conditional_constraint.add(conditional_constraint)
@@ -123,7 +108,14 @@ class Solver2SMT(z3.Solver):
                     # solver_with_conditional_constraint.start_recording()
                     result = solver_with_conditional_constraint.check()
                     self.__latest_solvers_results.append(run_solvers.run_solvers("conditional_constraints.smt2"))
-                    self.__condition_var_assignment_model.append(combination)
+                    self.__condition_var_assignment_model.append(model)
+
+                    opt.add(z3.Int("min_hamdist") <= z3.Sum(z3.If(var == model[var], 0, 1) for (_, var) in self.__assertions)) # TODO condtions from a set of conditions
+                    opt.maximize(z3.Int("min_hamdist"))
+                    opt.check()
+                    model = opt.model()
+                    dist = model['min_hamdist']
+
 
                 # store smt file/str
                 self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
@@ -284,6 +276,7 @@ def optimizer_test():
     print(combination2)
 
 
+
 if __name__ == '__main__':
-    simple_test()
-    # optimizer_test()
+    # simple_test()
+    optimizer_test()

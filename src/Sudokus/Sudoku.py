@@ -392,6 +392,53 @@ class Sudoku:
             print(self._nums)
         return self._nums, self._penalty
 
+
+    def gen_holes_sudoku(self, solved_sudoku: list[int], store_sudoku_path="", verbose=False):
+        """
+        Generates a Sudoku puzzle with holes from a solved Sudoku grid.
+
+        :param solved_sudoku: 1D list of an already solved Sudoku grid
+        :param store_sudoku_path: Path to store the generated Sudoku puzzle
+        :param verbose: If True, prints additional information during the process
+        :return: (time, penalty)
+        """
+        if verbose:
+            print(f'Solving puzzle: ')
+            print(solved_sudoku)
+
+        st = time.time()
+        penalty = 0
+        sudoku_array = solved_sudoku.copy()
+        for i in range(9):
+            for j in range(9):
+                # Create a new solver instance for each cell using keyword arguments
+                solver = Sudoku(
+                    sudoku_array=sudoku_array,
+                    classic=self._classic,
+                    distinct=self._distinct,
+                    per_col=self._per_col,
+                    no_num=self._no_num,
+                    prefill=self._prefill,
+                    seed=self._seed,
+                    hard_smt_logPath=self._hard_smt_logPath,
+                    hard_sudoku_logPath=self._hard_sudoku_logPath,
+                    verbose=False,
+                    distinct_digits=self._distinctdigits
+                )
+                removable, temp_penalty = solver.removable(i, j, solved_sudoku[i * 9 + j])
+                if removable:
+                    sudoku_array[i * 9 + j] = 0
+                penalty += temp_penalty
+
+        et = time.time()
+        time_rec = et - st
+
+        if verbose:
+            print('Successfully generated one puzzle')
+            print(solved_sudoku)
+
+        return time_rec, penalty
+
     def gen_full_and_write_smt2_to_file(self, smt_dir):
         """
         return: generated smt2 file_path
@@ -710,11 +757,11 @@ if __name__ == "__main__":
 
 
 # full smt files
-# encode the numbers not as numbers, but as new constants
 # >= part distinct numbers -> add it---
 # ++++++++6666666
 # 66to the contraints variations
 # smt to string mapping
-# cache
-# write own smt strings from scratch
 # break the whole function into calling smaller functions
+
+
+

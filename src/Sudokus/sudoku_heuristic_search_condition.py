@@ -475,6 +475,4 @@ if __name__ == '__main__':
 
 # percentages of timeout
 # stack the time for each constraint together, and use percentages
-# arr in latex
 
-# more solvers
