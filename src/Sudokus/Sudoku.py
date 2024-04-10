@@ -435,7 +435,7 @@ class Sudoku:
 
         if verbose:
             print('Successfully generated one puzzle')
-            print(solved_sudoku)
+            print(sudoku_array)
 
         return time_rec, penalty
 
