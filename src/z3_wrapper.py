@@ -6,7 +6,7 @@ import warnings
 
 # child class to write push and pop to SMT2 file
 class Solver2SMT(z3.Solver):
-    def __init__(self, benchmark_mode=False,*args, **kwargs):
+    def __init__(self, benchmark_mode=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__start_recording = False
         self.__history = []
@@ -19,12 +19,13 @@ class Solver2SMT(z3.Solver):
 
     def __getattribute__(self, name):
         _allowed_methods = ['add', 'add_global_constraints', 'add_conditional_constraint',
-                                 'check_conditional_constraints', 'check', 'push', 'pop',
-                                 'start_recording', 'generate_smtlib','_allowed_methods',
-                            'ctx','solver','set','assert_exprs','to_smt2','assertions','get_condition_var_assignment_model',
+                            'check_conditional_constraints', 'check', 'push', 'pop',
+                            'start_recording', 'generate_smtlib', '_allowed_methods',
+                            'ctx', 'solver', 'set', 'assert_exprs', 'to_smt2', 'assertions',
+                            'get_condition_var_assignment_model',
                             'get_latest_solvers_results']
-        if name.startswith('_') or name in _allowed_methods: # intentionally accessing a private variable
-            return object.__getattribute__(self,name)
+        if name.startswith('_') or name in _allowed_methods:  # intentionally accessing a private variable
+            return object.__getattribute__(self, name)
         else:
             warnings.warn(f"Method '{name}' is called.\n "
                           f"But this method might not be recorded to smt2 file and might incur potential logic errors"
@@ -58,11 +59,11 @@ class Solver2SMT(z3.Solver):
             raise "There is no way to satisfy all condition variables provided under global constraint"
 
     def check_conditional_constraints(self, *args, condition=z3.BoolVal(True)):
-        s = z3.Solver() # no smt file recording required
+        s = z3.Solver()  # no smt file recording required
         s.add(self.__global_constraints)
 
         # temporarily add the constraint and conditional constraint to be checked.
-        if args: # append the checked condition
+        if args:  # append the checked condition
             self.__assertions.append((args, condition))
 
         if s.check() == z3.sat:
@@ -92,14 +93,14 @@ class Solver2SMT(z3.Solver):
                 # find different combinations
                 opt = z3.Optimize()
                 opt.add(self.__global_constraints)
-                combinations = [model]
                 dist = 1
-                while dist > 0:
+                count = 0
+                if count < 1:
                     solver_with_conditional_constraint = Solver2SMT()
 
                     # add corresponding conditional constraints and try to solve
                     for (conditional_constraint, condition) in self.__assertions:
-                        if  model.eval(condition):
+                        if model.eval(condition):
                             if self.__start_recording:
                                 self.__history.append(("add", str(conditional_constraint.sexpr())))
                             solver_with_conditional_constraint.add(conditional_constraint)
@@ -109,13 +110,17 @@ class Solver2SMT(z3.Solver):
                     result = solver_with_conditional_constraint.check()
                     self.__latest_solvers_results.append(run_solvers.run_solvers("conditional_constraints.smt2"))
                     self.__condition_var_assignment_model.append(model)
+                    min_hamdist = z3.Int("min_hamdist")
 
-                    opt.add(z3.Int("min_hamdist") <= z3.Sum(z3.If(var == model[var], 0, 1) for (_, var) in self.__assertions)) # TODO condtions from a set of conditions
-                    opt.maximize(z3.Int("min_hamdist"))
+                    opt.add(min_hamdist <= z3.Sum(
+                        tuple(z3.If((var == bool(model[var])), 0, 1) for (_, var) in self.__assertions)))
+                    # opt.add(min_hamdist <= z3.Sum([0,1,0,1]))
+
+                    opt.maximize(min_hamdist)
                     opt.check()
                     model = opt.model()
-                    dist = model['min_hamdist']
-
+                    dist = model[min_hamdist]
+                    count+=1
 
                 # store smt file/str
                 self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
@@ -124,7 +129,6 @@ class Solver2SMT(z3.Solver):
                     file.write(self.__smt_str)
 
                 # launch multiple solvers and store resutls
-
 
             # pop the temporarily added conditional constraints
             if args:
@@ -137,11 +141,10 @@ class Solver2SMT(z3.Solver):
             raise ("Impossible to find any way of building constraints"
                    "The conditional constraints are not satisfiable under global constraints ")
 
-
-    def push(self, *args, **kwargs):
+    def push(self):
         if self.__start_recording:
             self.__history.append(("push", None))
-        super().push(*args, **kwargs)
+        super().push()
 
     def pop(self, *args, **kwargs):
         if self.__start_recording:
@@ -149,10 +152,11 @@ class Solver2SMT(z3.Solver):
         super().pop(*args, **kwargs)
 
     def check(self, *args, **kwargs):
+        result = None
         if self.__start_recording:
             if args:
                 for arg in args:
-                # Format the args in SMT-LIB syntax
+                    # Format the args in SMT-LIB syntax
                     self.__history.append(("push", ""))
                     self.__history.append(("add", str(arg.sexpr())))
                     self.__history.append(("check", ""))
@@ -201,6 +205,7 @@ class Solver2SMT(z3.Solver):
     def get_latest_solvers_results(self):
         return self.__latest_solvers_results
 
+
 def simple_test():
     solver = Solver2SMT(benchmark_mode=True)
 
@@ -227,6 +232,7 @@ def simple_test():
     print(solver.get_condition_var_assignment_model())
     print("Latest Solvers Results:")
     print(solver.get_latest_solvers_results())
+
 
 def optimizer_test():
     # Create variables
@@ -274,7 +280,6 @@ def optimizer_test():
     print(combination1)
     print("Combination 2:")
     print(combination2)
-
 
 
 if __name__ == '__main__':

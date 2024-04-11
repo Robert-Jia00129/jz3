@@ -30,7 +30,9 @@ class Sudoku:
     _hard_sudoku_logPath = None
 
     def __init__(self, sudoku_array: List[int], classic: bool, distinct: bool, per_col: bool, no_num: bool,
-                 prefill: bool, seed=0, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False, distinct_digits=False
+                 prefill: bool, seed=0, hard_smt_logPath="", hard_sudoku_logPath="", verbose=False,
+                 distinct_digits=False,
+                 heuristic_search_mode=False, benchmark_mode=True
                  ):
         """
         Only write a logFile when a path is provided
@@ -72,7 +74,10 @@ class Sudoku:
         self._store_global = False
         self._global_solver = z3.Solver()
         self._distinctdigits = distinct_digits
-        # self._solver_operations = []
+        self._condition_var_distinct = z3.Bool('distinct')
+        self._condition_var_pbeq = z3.Bool('pbeq')
+        self._heuristic_search_mode = heuristic_search_mode
+        self._heuristic_solver = Solver2SMT(benchmark_mode=benchmark_mode)
         if seed == 0:
             print("WARNING: NO random seed was set for solver class. "
                   "This would cause experiments to be unreliable when compared in across constraints."
@@ -124,9 +129,10 @@ class Sudoku:
         for r in range(9):
             for c in range(9):
                 if self._nums[r][c] != 0:
+                    if self._heuristic_search_mode:
+                        self._heuristic_solver.add_conditional_constraint(self._grid[r][c] == self._nums[r][c])
                     if self._no_num:
                         self._solver.add(self._grid[r][c][self._nums[r][c] - 1])
-                    #     ,conditional = self._no_num TODO
                     elif self._distinctdigits:
                         self._solver.add(self._grid[r][c] == self._constants[self._nums[r][c] - 1])
                         # , conditional = not (self._no_num) & & self._distinctdigits
@@ -153,8 +159,7 @@ class Sudoku:
         else:  # numbers  2D grid
             # Restrict cells in between 1-9
             for cell in cells:
-                # TODO @sj we could maybe also improve this with PBEQ,
-                #  or we could just do assignment like this instead of the commented out way
+                # TODO another way of constraints that we can add, wouldn't expect to have too much of an impact though
                 # if self._distinctdigits:
                 #     self._solver.add(self._solver.Or(digit == 1, digit == 2)...)
                 # else:
@@ -168,14 +173,41 @@ class Sudoku:
             else:  # pbeq, numbers, 2D grid
                 [self._solver.add(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1))
                  for k in range(1, 10) for row in rows]
-                [self._solver.add(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1))
-                 for k in range(1, 10) for row in cols]
-                [self._solver.add(z3.PbEq([(row[i] == k, 1) for i in range(9)], 1))
-                 for k in range(1, 10) for row in boxes]
+                [self._solver.add(z3.PbEq([(col[i] == k, 1) for i in range(9)], 1))
+                 for k in range(1, 10) for col in cols]
+                [self._solver.add(z3.PbEq([(box[i] == k, 1) for i in range(9)], 1))
+                 for k in range(1, 10) for box in boxes]
+            if self._heuristic_search_mode and not self._distinctdigits:
+                # add constraints to the heuristic solver
+                for cell in cells:
+                    self._heuristic_solver.add(z3.Or([cell == c for c in self._constants]))
+
+                for row in rows:
+                    self._heuristic_solver.add_conditional_constraint(z3.Distinct(row), condition=self._condition_var_distinct)
+                    for num in range(1, 10):
+                        self._heuristic_solver.add_conditional_constraint(
+                            z3.PbEq([(cell == num, 1) for cell in row], 1),
+                            condition=self._condition_var_pbeq)
+                for col in cols:
+                    self._heuristic_solver.add_conditional_constraint(z3.Distinct(col), condition=self._condition_var_distinct)
+                    for num in range(1, 10):
+                        self._heuristic_solver.add_conditional_constraint(
+                            z3.PbEq([(cell == num, 1) for cell in col], 1),
+                            condition=self._condition_var_pbeq)
+
+                for box in boxes:
+                    self._heuristic_solver.add_conditional_constraint(z3.Distinct(box), condition=self._condition_var_distinct)
+                    for num in range(1, 10):
+                        self._heuristic_solver.add_conditional_constraint(
+                            z3.PbEq([(cell == num, 1) for cell in box], 1),
+                            condition=self._condition_var_pbeq)
+
+
+
         # Argyle-----
         if not self._classic:
             argyle_hints = [[self._grid[r][r + 4] for r in range(4)]  # Major diagonal 1
-                , [self._grid[r][r + 1] for r in range(8)]  # ??
+                , [self._grid[r][r + 1] for r in range(8)]
                 , [self._grid[r + 1][r] for r in range(8)]
                 , [self._grid[r + 4][r] for r in range(4)]
                 , [self._grid[r][-r - 5] for r in range(4)]
@@ -193,7 +225,19 @@ class Sudoku:
                 else:
                     self._solver.add(z3.And(
                         [z3.PbLe([(digit == k, 1) for digit in arg], 1) for arg in argyle_hints for k in range(9)]))
+                if self._heuristic_search_mode:
+                    for arg in argyle_hints:
+                        self._heuristic_solver.add_conditional_constraint(z3.Distinct(arg), condition=self._condition_var_distinct)
+                        for num in range(1, 10):
+                            self._heuristic_solver.add_conditional_constraint(
+                                z3.PbEq([(cell == num, 1) for cell in arg], 1),
+                                condition=self._condition_var_pbeq)
+
         self._solver.start_recording()
+
+    def conditional_check_solvable(self):
+        self.load_constraints()
+        return self._heuristic_solver.check_conditional_constraints()
 
     def new_solver(self):
         """
@@ -392,7 +436,6 @@ class Sudoku:
             print(self._nums)
         return self._nums, self._penalty
 
-
     def gen_holes_sudoku(self, solved_sudoku: list[int], store_sudoku_path="", verbose=False):
         """
         Generates a Sudoku puzzle with holes from a solved Sudoku grid.
@@ -452,11 +495,12 @@ class Sudoku:
                 for row in nums:
                     print(row)
             else:
-                warnings.warn(f"Unable to generate a full sudoku and the corresponding smt2 file, the current sudoku is: {self._nums}")
+                warnings.warn(
+                    f"Unable to generate a full sudoku and the corresponding smt2 file, the current sudoku is: {self._nums}")
 
         file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
         file_path = os.path.join(smt_dir, file_name)
-        with open(file_path,'w') as f:
+        with open(file_path, 'w') as f:
             f.write(self._solver.generate_smtlib())
         if self._verbose:
             print(f"SMT2 file generated at : {file_path}")
@@ -709,7 +753,8 @@ def check_condition_index(sudoku_grid: list[int], condition, index: (int, int), 
     return end - start, penalty
 
 
-def generate_smt_for_particular_instance(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool, smt_dir: str,seed=0) -> str:
+def generate_smt_for_particular_instance(grid: str, constraint: list, index: (int, int), try_val: int, is_sat: bool,
+                                         smt_dir: str, seed=0) -> str:
     """
     Add an additional constraint to the Sudoku problem, generate an SMT file, and return the file path.
     :param index: Tuple (row, column) of the cell for the additional constraint.
@@ -718,10 +763,39 @@ def generate_smt_for_particular_instance(grid: str, constraint: list, index: (in
     :param smt_dir: Directory to store the generated SMT file.
     :return: The path to the generated SMT file.
     """
-    solver = Sudoku(list(map(int, (grid))), *constraint,seed=seed)
+    solver = Sudoku(list(map(int, (grid))), *constraint, seed=seed)
     file_path = solver.generate_smt_with_additional_constraint(index, try_val, is_sat, smt_dir)
 
     return file_path
+
+
+def sudoku_conditional_constraints_test():
+    # Create an empty Sudoku grid
+    empty_grid = [0] * 81
+
+    # Create an instance of the Sudoku class
+    sudoku = Sudoku(empty_grid, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
+                    distinct_digits=True)
+
+    # Load the constraints
+    sudoku.load_constraints()
+
+    # Check if the first index can be equal to 1
+    result = sudoku._heuristic_solver.check_conditional_constraints(sudoku._grid[0][0] == 1)
+    print(f"Can the first index be equal to 1? {result}")
+
+    # Access the recorded combinations and performance results
+    print("Condition Variable Assignment Models:")
+    models = sudoku._heuristic_solver.get_condition_var_assignment_model()
+    for i, model in enumerate(models):
+        print(f"Model {i + 1}:")
+        print(model)
+
+    print("Latest Solvers Results:")
+    results = sudoku._solver.get_latest_solvers_results()
+    for i, result in enumerate(results):
+        print(f"Result {i + 1}:")
+        print(result)
 
 
 if __name__ == "__main__":
@@ -740,10 +814,13 @@ if __name__ == "__main__":
 
     # store_holes = np.load('solved_sudoku.npy')
     # ret_holes_time = generate_puzzle(store_holes, True, True, False, False)
-    empty_list = [0 for i in range(9) for j in range(9)]
-    s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
-               distinct_digits=True)
-    smt_str = s.gen_full_and_write_smt2_to_file("my-smt.smt2")
+
+    # empty_list = [0 for i in range(9) for j in range(9)]
+    # s = Sudoku(empty_list, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
+    #            distinct_digits=True)
+    # smt_str = s.gen_full_and_write_smt2_to_file("my-smt.smt2")
+
+    sudoku_conditional_constraints_test()
 
     print("Process finished")
 
@@ -762,6 +839,3 @@ if __name__ == "__main__":
 # 66to the contraints variations
 # smt to string mapping
 # break the whole function into calling smaller functions
-
-
-

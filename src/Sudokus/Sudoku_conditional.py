@@ -694,13 +694,39 @@ class Sudoku:
         for i in range(9):
             for j in range(9):
                 if sudoku_array[i*9+j] != 0:
-                    self._solver.add(self._grid[i][j] == sudoku_array[i*9+j])
+                    self._solver.add_conditional_constraint(self._grid[i][j] == sudoku_array[i*9+j])
 
     def load_constraints(self):
-        for row in self._grid:
+        cells = [self._grid[r][c] for c in range(9) for r in range(9)]  # each grid cell
+        rows = [self._grid[r] for r in range(9)]  # row 1-9
+        cols = [[self._grid[r][c] for r in range(9)] for c in range(9)]  # col 1-9
+        offset = list(itertools.product(range(0, 3), range(0, 3)))  # box 1st -9th
+        boxes = []
+        for r in range(0, 9, 3):
+            for c in range(0, 9, 3):
+                boxes.append([self._grid[r + dy][c + dx] for dy, dx in offset])
+
+        for cell in cells:
+            self._solver.add(z3.Or([cell == c for c in range(1,10)]))
+        for row in rows:
             self._solver.add_conditional_constraint(z3.Distinct(row), condition=self._distinct)
             for num in range(1, 10):
-                self._solver.add_conditional_constraint(z3.PbEq([(cell == num, 1) for cell in row], 1), condition=self._pbeq)
+                self._solver.add_conditional_constraint(
+                    z3.PbEq([(cell == num, 1) for cell in row], 1),
+                    condition=self._pbeq)
+        for col in cols:
+            self._solver.add_conditional_constraint(z3.Distinct(col), condition=self._distinct)
+            for num in range(1, 10):
+                self._solver.add_conditional_constraint(
+                    z3.PbEq([(cell == num, 1) for cell in col], 1),
+                    condition=self._pbeq)
+
+        for box in boxes:
+            self._solver.add_conditional_constraint(z3.Distinct(box), condition=self._distinct)
+            for num in range(1, 10):
+                self._solver.add_conditional_constraint(
+                    z3.PbEq([(cell == num, 1) for cell in box], 1),
+                    condition=self._pbeq)
 
     def check_solvable(self):
         self.load_constraints()
@@ -709,7 +735,7 @@ class Sudoku:
 
 def sudoku_conditional_constraints_test():
     # Create an empty Sudoku grid
-    empty_grid = [0] * 81
+    empty_grid = [0] * 72 + [1,0,0,0,0,0,0,0,0]
 
     # Create an instance of the Sudoku class
     sudoku = Sudoku(empty_grid)
