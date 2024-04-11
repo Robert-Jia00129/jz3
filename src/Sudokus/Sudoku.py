@@ -78,6 +78,8 @@ class Sudoku:
         self._condition_var_pbeq = z3.Bool('pbeq')
         self._heuristic_search_mode = heuristic_search_mode
         self._heuristic_solver = Solver2SMT(benchmark_mode=benchmark_mode)
+        self._heuristic_solver.add_global_constraints(z3.Or(self._condition_var_distinct,self._condition_var_pbeq))
+
         if seed == 0:
             print("WARNING: NO random seed was set for solver class. "
                   "This would cause experiments to be unreliable when compared in across constraints."

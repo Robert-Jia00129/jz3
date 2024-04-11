@@ -2,7 +2,14 @@
 > This project was partly based on the code from [z3-sudoku](https://github.com/awkwardbunny/z3-sudoku)
 
 This project uses python z3-solver to benchmark encoding techniques to solving the same problem. 
-It then compares the efficiency of each method and between different encoding techniques. 
+It then compares the efficiency of each method and between different encoding techniques.
+
+A demo of how to use the library is provided by solving sudoku in `./src/Sudokus`
+
+In `Sudoku.py` both traditional implementation of adding conditional constraints using if-else
+statements and our approach of adding conditional constraints using our custom solver is presented. 
+An example of two different ways of querying if an index can be set to a number is presented.
+
 
 ## Directory Structure
 - `/analysis`: Includes scripts and notebooks for analyzing solver performance and generating images for reports or presentations.
