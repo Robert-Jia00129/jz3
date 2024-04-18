@@ -96,7 +96,7 @@ class Sudoku:
         else:
             self._constants = [i for i in range(1, 10)]
             if not no_num:
-                self._grid = [[z3.Const(f"cell_{r + 1}_{c + 1}", z3.IntSort()) for c in range(9)] for r in range(9)]
+                self._grid = [[z3.Int(f"cell_{r + 1}_{c + 1}") for c in range(9)] for r in range(9)]
             else:
                 self._grid = [[[z3.Const(f"cell_{r + 1}_{c + 1}_{num + 1}", z3.BoolSort()) for num in range(9)]
                                for c in range(9)] for r in range(9)]
@@ -777,13 +777,13 @@ def sudoku_conditional_constraints_test():
 
     # Create an instance of the Sudoku class
     sudoku = Sudoku(empty_grid, classic=True, distinct=True, per_col=True, no_num=False, prefill=True, seed=1234,
-                    distinct_digits=True)
+                    distinct_digits=False,benchmark_mode=True,heuristic_search_mode=True)
 
     # Load the constraints
     sudoku.load_constraints()
 
     # Check if the first index can be equal to 1
-    result = sudoku._heuristic_solver.check_conditional_constraints(sudoku._grid[0][0] == 1)
+    result = sudoku._heuristic_solver.check_conditional_constraints(sudoku._grid[0][0] == z3.Int(1))
     print(f"Can the first index be equal to 1? {result}")
 
     # Access the recorded combinations and performance results
@@ -793,11 +793,6 @@ def sudoku_conditional_constraints_test():
         print(f"Model {i + 1}:")
         print(model)
 
-    print("Latest Solvers Results:")
-    results = sudoku._solver.get_latest_solvers_results()
-    for i, result in enumerate(results):
-        print(f"Result {i + 1}:")
-        print(result)
 
 
 if __name__ == "__main__":

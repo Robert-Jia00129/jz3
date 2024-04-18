@@ -133,4 +133,4 @@ if __name__ == '__main__':
                         ("prefill","no_prefill"),
                         ("gen_time","solve_time")]
     plotter = ConstraintPlotter(time_instances_file_path)
-    plotter.plot_constraints_comparison(1, solvers=["z3", "cvc5"],  combined_plot=True,constraint_names=constraint_names)
+    plotter.plot_constraints_comparison(3, solvers=["z3", "cvc5"],  combined_plot=True,constraint_names=constraint_names)

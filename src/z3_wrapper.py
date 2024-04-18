@@ -16,6 +16,7 @@ class Solver2SMT(z3.Solver):
         self.__condition_var_assignment_model = None
         self.__latest_solvers_results = None
         self.__benchmark_mode = benchmark_mode
+        self.__variables = set()
 
     def __getattribute__(self, name):
         _allowed_methods = ['add', 'add_global_constraints', 'add_conditional_constraint',
@@ -52,13 +53,14 @@ class Solver2SMT(z3.Solver):
             condition = z3.BoolVal(True)
         for conditional_constraint in args:
             self.__assertions.append((conditional_constraint, condition))
+            self.__variables.add(condition)
         s = z3.Solver()
         s.add(self.__global_constraints)
 
         if s.check() != z3.sat:
             raise "There is no way to satisfy all condition variables provided under global constraint"
 
-    def check_conditional_constraints(self, *args, condition=z3.BoolVal(True)):
+    def check_conditional_constraints(self, *args, condition=z3.BoolVal(True),max_count=5):
         s = z3.Solver()  # no smt file recording required
         s.add(self.__global_constraints)
 
@@ -95,7 +97,7 @@ class Solver2SMT(z3.Solver):
                 opt.add(self.__global_constraints)
                 dist = 1
                 count = 0
-                if count < 1:
+                while (count < max_count) and (dist > 0):
                     solver_with_conditional_constraint = Solver2SMT()
 
                     # add corresponding conditional constraints and try to solve
@@ -113,14 +115,14 @@ class Solver2SMT(z3.Solver):
                     min_hamdist = z3.Int("min_hamdist")
 
                     opt.add(min_hamdist <= z3.Sum(
-                        tuple(z3.If((var == bool(model[var])), 0, 1) for (_, var) in self.__assertions)))
+                        tuple(z3.If((var == bool(model[var])), 0, 1) for var in self.__variables)))
                     # opt.add(min_hamdist <= z3.Sum([0,1,0,1]))
 
                     opt.maximize(min_hamdist)
                     opt.check()
                     model = opt.model()
-                    dist = model[min_hamdist]
-                    count+=1
+                    dist = model[min_hamdist].as_long()
+                    count += 1
 
                 # store smt file/str
                 self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
