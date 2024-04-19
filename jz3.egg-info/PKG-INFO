@@ -1,3 +1,21 @@
+Metadata-Version: 2.1
+Name: jz3
+Version: 0.1.0
+Summary: A simple wrapper for Z3 solver
+Home-page: https://github.com/Robert-Jia00129/jz3
+Author: Sebastiaan Joosten, Zheng Robert Jia
+Author-email: jia00129@umn.edu
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE-Z3.txt
+License-File: LICENSE.txt
+
 # Argyle_Sudoku
 > This project was partly based on the code from [z3-sudoku](https://github.com/awkwardbunny/z3-sudoku)
 
@@ -20,7 +38,7 @@ An example of two different ways of querying if an index can be set to a number 
 - `/problem_instances`: 
   - `/particular_hard_instances_records`: Particular hard **instances** identified during the generation process, in txt and SMT format
   - `/whole_problem_records`: **Whole** sudoku problems in txt and SMT format
-  - Details of recording format explained [here](jz3/problems_instances/README.md)
+  - Details of recording format explained [here](./problems_instances/README.md)
 
 
 - `/solvers`: Houses executables and related files for various SMT solvers used in the project.
@@ -44,7 +62,7 @@ An example of two different ways of querying if an index can be set to a number 
 
  The workflow is depicted in the following picture: 
 
-![workflow](jz3/analysis/workflow.jpg)
+![workflow](./analysis/workflow.jpg)
 
 
 
