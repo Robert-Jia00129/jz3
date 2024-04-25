@@ -1,7 +1,0 @@
-(declare-const c (_ BitVec 1))
-(assert (not (= (_ bv0 32) ((_ zero_extend 31) c))))
-(assert (distinct (_ bv0 32) ((_ zero_extend 31) c)))
-(push 1)
-(set-info :status sat)
-(check-sat)
-(pop 1)

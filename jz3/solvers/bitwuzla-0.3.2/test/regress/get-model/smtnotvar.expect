@@ -1,4 +1,0 @@
-sat
-(
-  (define-fun a () Bool false)
-)

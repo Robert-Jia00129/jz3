@@ -1,1 +1,0 @@
-regress/parser/regmismatch.smt2:3:18: expected terms of same sort at indices 0 and 1 as argument to 'bvsle'

@@ -1,5 +1,0 @@
-(set-logic ALL)
-(set-info :status sat)
-(declare-const x (_ BitVec 20))
-(assert (= ((_ int2bv 10) (bv2nat x)) #b0101010101))
-(check-sat)
