@@ -1,0 +1,4 @@
+/Users/jiazhenghao/Desktop/CodingProjects/ArgyleSudoku/Sudoku/vampire-4.8casc2023/CMakeFiles/obj.dir
+/Users/jiazhenghao/Desktop/CodingProjects/ArgyleSudoku/Sudoku/vampire-4.8casc2023/CMakeFiles/vampire.dir
+/Users/jiazhenghao/Desktop/CodingProjects/ArgyleSudoku/Sudoku/vampire-4.8casc2023/CMakeFiles/edit_cache.dir
+/Users/jiazhenghao/Desktop/CodingProjects/ArgyleSudoku/Sudoku/vampire-4.8casc2023/CMakeFiles/rebuild_cache.dir

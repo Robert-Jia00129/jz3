@@ -1,0 +1,16 @@
+; REQUIRES: no-competition
+; COMMAND-LINE: -o sygus-grammar
+; EXPECT: (sygus-grammar f
+; EXPECT: ((A_Int Int) (A_Bool Bool) )
+; EXPECT: ((A_Int Int (x y 0 1 (+ A_Int A_Int) (- A_Int A_Int) (ite A_Bool A_Int A_Int) ))
+; EXPECT: (A_Bool Bool (false true (= A_Int A_Int) (<= A_Int A_Int) (not A_Bool) (and A_Bool A_Bool) (or A_Bool A_Bool) ))
+; EXPECT: ))
+; EXPECT: (
+; EXPECT: (define-fun f ((x Int) (y Int)) Int 0)
+; EXPECT: )
+
+(set-logic LIA)
+
+(synth-fun f ((x Int) (y Int)) Int)
+
+(check-synth)

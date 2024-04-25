@@ -1,0 +1,1 @@
+regress/parser/smt2perr093.smt2:3:21: expected terms of same sort at indices 1 and 2 as argument to 'ite'

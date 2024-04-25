@@ -1,0 +1,23 @@
+(set-logic QF_ABV)
+(set-info :status unsat)
+(declare-const a0 (Array (_ BitVec 2) (_ BitVec 1) ))
+(declare-const i0 (_ BitVec 2))
+(declare-const i1 (_ BitVec 2))
+(declare-const i2 (_ BitVec 2))
+(declare-const v3 (_ BitVec 1))
+(declare-const v4 (_ BitVec 1))
+(declare-const v5 (_ BitVec 1))
+(declare-const v6 (_ BitVec 1))
+(assert
+ (and
+  (=
+   (store (store a0 i2 v5) i0 v3)
+   (store (store a0 i2 v6) i1 v4)
+  )
+  (not (= i0 i1))
+  (not (= v5 v6))
+  (not (= i0 i2))
+  (not (= i1 i2))
+ )
+)
+(check-sat)

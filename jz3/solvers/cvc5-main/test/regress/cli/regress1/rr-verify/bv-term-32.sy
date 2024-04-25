@@ -1,0 +1,26 @@
+; COMMAND-LINE: --sygus-stream --lang=sygus2 --sygus-samples=1000 --tlimit-per=500 --no-sygus-rr-synth-check
+; SCRUBBER: grep -v -E '\(.*|fail'
+; EXIT: 0
+
+(set-logic BV)
+
+(synth-fun f ((s (_ BitVec 32)) (t (_ BitVec 32))) (_ BitVec 32)
+  ((Start (_ BitVec 32)))
+  (
+   (Start (_ BitVec 32) (
+     s
+     t
+     #x00000000
+     (bvneg  Start)
+     (bvnot  Start)
+     (bvadd  Start Start)
+     (bvmul  Start Start)
+     (bvand  Start Start)
+     (bvlshr Start Start)
+     (bvor   Start Start)
+     (bvshl  Start Start)
+   ))
+))
+
+(find-synth :rewrite)
+(find-synth :rewrite_unsound)

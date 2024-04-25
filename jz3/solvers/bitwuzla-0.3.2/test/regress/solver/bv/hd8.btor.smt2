@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(set-info :status unsat)
+(declare-const v0 (_ BitVec 8))
+(declare-const v1 (_ BitVec 8))
+(assert (or (or (not (or (not (not (bvuaddo v0 v1))) (bvule (bvor v0 v1) (bvadd v0 v1)))) (not (or (not (bvuaddo v0 v1)) (not (bvule (bvor v0 v1) (bvadd v0 v1)))))) (not (bvule (bvsub (ite (bvugt v0 v1) v0 v1) (ite (bvult v0 v1) v0 v1)) (bvxor v0 v1)))))
+(check-sat)

@@ -1,0 +1,6 @@
+(set-logic QF_FP)
+(set-info :status sat)
+(declare-const s RoundingMode)
+(declare-const s5 RoundingMode)
+(declare-const s7 Bool)
+(check-sat)

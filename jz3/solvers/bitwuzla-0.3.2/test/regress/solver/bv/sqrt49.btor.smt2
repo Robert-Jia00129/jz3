@@ -1,0 +1,5 @@
+(set-logic QF_BV)
+(set-info :status sat)
+(declare-const v0 (_ BitVec 6))
+(assert (and (= (bvmul v0 v0) (_ bv49 6)) (not (bvumulo v0 v0))))
+(check-sat)

@@ -1,0 +1,6 @@
+(set-logic QF_BV)
+(declare-const bv (_ BitVec 32))
+(push 0)
+(pop 0)
+(set-info :status sat)
+(check-sat)
