@@ -17,9 +17,6 @@ assert isinstance(FULL_CONDITIONS[0], Hashable), "Conditions MUST be HASHABLE"
 SOLVER_LIST = ("z3", "cvc5")
 
 
-# Remember to reset the dict in curr_line_of_solving_full_sudokus.txt if the file exist
-
-
 def write_file(condition_name, arr_time):
     file_path = condition_name + "-" + time.strftime("%Y_%m_%d_%H_%M_%S")
     with zipfile.ZipFile(f'../{file_path}.zip', 'w') as my_zip:
@@ -113,6 +110,7 @@ def run_experiment_once(single_condition: bool, *args,
     Returns:
         None
     """
+    total_time_start = time.time()
     try:
         with open(curr_line_path, 'r') as f:
             curr_line = eval(f.readline())
@@ -154,12 +152,14 @@ def run_experiment_once(single_condition: bool, *args,
         if classic_full_path in curr_line:
             f.seek(curr_line[classic_full_path])
         classic_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+        curr_line[classic_full_path] = f.tell()
     classic_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_classic_instances.txt')
 
     with open(argyle_full_path, 'r') as f:
         if argyle_full_path in curr_line:
             f.seek(curr_line[argyle_full_path])
         argyle_sudoku_lst = f.readline()[:-1]  # get rid of new line character
+        curr_line[argyle_full_path] = f.tell()
     argyle_hard_sudoku_path = os.path.join(hard_sudoku_dir, 'hard_argyle_instance.txt')
 
     for condition in conditions:
@@ -185,12 +185,15 @@ def run_experiment_once(single_condition: bool, *args,
         with open(os.path.join(time_record_dir, condition_name + '.txt'), 'a+') as f_holes:
             f_holes.write(f'{holes_time},{holes_penalty}\n')
 
+
     par_dir = Path(curr_line_path).parent
     os.makedirs(par_dir, exist_ok=True)
     with open(curr_line_path, 'w') as f:
         f.truncate()
         f.write(str(curr_line))
     print("Ran experiment once")
+    total_time_end = time.time()
+    print(f"Total time taken: {total_time_end-total_time_start}")
 
 
 def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
@@ -330,7 +333,7 @@ def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic:
         for _ in range(num_iter):
             line_to_solve = fr.readline().strip()
             if not line_to_solve:
-                print("Not enough hard instances for experiment/Encountered an empty new line\n\n\n")
+                print("Not enough hard instances for experiment/Encountered an empty new line\n")
             store_result_dict = {}
             try:
                 tgrid, tcondition, tindex, ttry_Val, tis_sat = line_to_solve.split("\t")
@@ -389,7 +392,8 @@ def record_whole_problem_performance(num_iter: int=1,
     store_time_comparison_path = os.path.join(time_record_whole_problem_dir,"time.txt")
 
     # Iterate through all possible condition combinations
-    for _ in range(num_iter):
+    for asdf in range(num_iter):
+        print(f'Solving the {asdf}th problem')
         store_result_dict = {}
         empty_list = [0 for i in range(9) for j in range(9)]
 
@@ -435,7 +439,7 @@ def load_and_alternative_solve_hard_once():
     hard_instances_txt_log_dir = "../../problems_instances/particular_hard_instances_records/txt_files/"
     # load_and_alternative_solve(hard_instances_time_record_dir, is_classic=True, num_iter=10,
     #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
-    load_and_alternative_solve_hard(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=False, num_iter=1,
+    load_and_alternative_solve_hard(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=False, num_iter=6*10,
                                     currline_path=currline_path, timeout=TIME_OUT)
 
 
@@ -456,15 +460,13 @@ def run_experiment(num_iter=0):
 
 if __name__ == '__main__':
     TIME_OUT = 5
-
-    run_experiment(1)
-
+    # run_experiment(1)
+    load_and_alternative_solve_hard_once()
     print("Process Complete")
 
-# specify timeout for python subprocesses
-# don't tell time limit
+
 # record timeout despite the output.
-# exceptions
+
 
 
 
