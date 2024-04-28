@@ -1,10 +1,12 @@
 import os
 import subprocess
+import sys
 import time
 import zipfile
 from pathlib import Path
 from typing import List, Hashable
 from jz3.src.Sudokus import Sudoku
+from jz3.src.run_solvers import run_solvers
 
 
 FULL_CONDITIONS = [(classic, distinct, percol, nonum, prefill)  # must be hashable
@@ -214,7 +216,7 @@ def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
         result = exc
     ans = "timeout"
     end_time = time.time()
-
+    total_time = end_time-start_time
     if not did_timeout:
         if "unsat" in combined_output:
             ans = "unsat"
@@ -222,7 +224,9 @@ def solve_with_z3(smt_log_file_path: str, time_out: int) -> (int, int, str):
             ans = "sat"
         else:
             ans = "unknown"
-    return (end_time - start_time, did_timeout, ans)
+    else:
+        total_time=time_out
+    return (total_time, did_timeout, ans)
 
 
 def solve_with_cvc5(smt_log_file_path: str, time_out: int) -> (int, int, str):
@@ -294,7 +298,7 @@ def solve_with_solver(solver_name: str, smt_file_path, time_out=5) -> (int, int,
     raise ValueError(f"Unknown solver: {solver_name}, please implement the corresponding code")
 
 
-def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic: bool, num_iter: int,
+def load_and_alternative_solve_hard_once(hard_instances_txt_log_dir: str, is_classic: bool, num_iter: int,
                                     currline_path="curr_instance_line.txt", timeout=5,
                                     hard_smt_dir="../../problems_instances/particular_hard_instances_records/smt2_files/",
                                     time_record_dir:str=""):
@@ -317,30 +321,38 @@ def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic:
 
     with open(hard_instances_file_path, 'r+') as fr:
         with open(currline_path, "r") as ftempr:
-            argyle_and_classic_time_dict = ftempr.readline()
-            if argyle_and_classic_time_dict == '':
-                argyle_and_classic_time_dict = {"classic": 0, "argyle": 0, "seed": 40}
+            argyle_and_classic_curr_line = ftempr.readline()
+            if argyle_and_classic_curr_line == '':
+                argyle_and_classic_curr_line = {"classic": 0, "argyle": 0, "seed": 40}
             else:
-                argyle_and_classic_time_dict = eval(argyle_and_classic_time_dict)
-        curr_line_num: int = argyle_and_classic_time_dict.get("classic" if is_classic else "argyle", 0)
-        argyle_and_classic_time_dict[
-            "classic" if is_classic else "argyle"] += curr_line_num + num_iter  # record read lines up till now
+                argyle_and_classic_curr_line = eval(argyle_and_classic_curr_line)
+        curr_line_num: int = argyle_and_classic_curr_line.get("classic" if is_classic else "argyle", 0)
+        argyle_and_classic_curr_line[
+            "classic" if is_classic else "argyle"] = curr_line_num + num_iter  # record read lines up till now
 
         # skip current line numbers
         for _ in range(curr_line_num):
             fr.readline()
 
         for _ in range(num_iter):
-            line_to_solve = fr.readline().strip()
-            if not line_to_solve:
-                print("Not enough hard instances for experiment/Encountered an empty new line\n\n\n")
-            store_result_dict = {}
+            line_to_solve = fr.readline()
+            if line_to_solve == '\n':
+                print("Encountered an empty new line, skipping the empty line")
+                continue
+            elif line_to_solve=='':
+                print("Not enough hard instances for to solve for/\nExiting the program, consider running more experiments to find more hard instances. ")
+                sys.exit()
+            line_to_solve = line_to_solve.strip()
+
             try:
                 tgrid, tcondition, tindex, ttry_Val, tis_sat = line_to_solve.split("\t")
             except ValueError:
+                print(f"Encountered an error while trying to parse the hard instance:"
+                      f"{line_to_solve}")
                 continue
-            tcondition = eval(tcondition)
 
+            tcondition = eval(tcondition)
+            store_result_dict = {}
             # store problem and smt path
             store_result_dict["problem"] = {
                 "grid": tgrid,
@@ -352,7 +364,7 @@ def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic:
             # solve with other conditions
             CorAconditions = [ele for ele in FULL_CONDITIONS if ele[0] == tcondition[0]]
             for CorAcondition in CorAconditions:
-                if (CorAcondition) not in store_result_dict:
+                if CorAcondition not in store_result_dict:
                     store_result_dict[CorAcondition] = {}  # initialize the dictionary
                 if "smt_path" not in store_result_dict[CorAcondition]:
                     single_condition_smt_path = Sudoku.generate_smt_for_particular_instance(store_result_dict["problem"]["grid"],
@@ -375,7 +387,7 @@ def load_and_alternative_solve_hard(hard_instances_txt_log_dir: str, is_classic:
                 fw.write(str(store_result_dict) + '\n')
         with open(currline_path, 'w') as fw:
             fw.truncate()
-            fw.write(str(argyle_and_classic_time_dict))
+            fw.write(str(argyle_and_classic_curr_line))
 
 
 def record_whole_problem_performance(num_iter: int=1,
@@ -392,7 +404,8 @@ def record_whole_problem_performance(num_iter: int=1,
     store_time_comparison_path = os.path.join(time_record_whole_problem_dir,"time.txt")
 
     # Iterate through all possible condition combinations
-    for _ in range(num_iter):
+    for asdf in range(num_iter):
+        print(f'Solving the {asdf}th problem')
         store_result_dict = {}
         empty_list = [0 for i in range(9) for j in range(9)]
 
@@ -432,15 +445,22 @@ def record_whole_problem_performance(num_iter: int=1,
             #     # Record the results
             #     # ...
 
-def load_and_alternative_solve_hard_once():
+
+def load_and_alternative_solve_hard(num_iter:int=0):
+    """
+    One instances take approximately 1 minute
+    """
     time_record_dir = "../../time-record/particular_hard_instance_time_record/"
     currline_path = "../../problems_instances/particular_hard_instances_records/txt_files/curr_instance_line.txt"
     hard_instances_txt_log_dir = "../../problems_instances/particular_hard_instances_records/txt_files/"
     # load_and_alternative_solve(hard_instances_time_record_dir, is_classic=True, num_iter=10,
     #                            currline_path=alternative_solve_curr_line_path, timeout=TIME_OUT)
-    load_and_alternative_solve_hard(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=True, num_iter=10,
+    print(f'loading and solving for {num_iter} hard instances (across all solvers and all conditions)\n'
+          f'{"-" * num_iter}')
+    for i in range(num_iter):
+        load_and_alternative_solve_hard_once(hard_instances_txt_log_dir=hard_instances_txt_log_dir, time_record_dir=time_record_dir, is_classic=False, num_iter=1,
                                     currline_path=currline_path, timeout=TIME_OUT)
-
+        print('-',end='')
 
 def run_experiment(num_iter=0):
     # dictionary of file paths to feed into `run_experiment_once`
@@ -458,21 +478,12 @@ def run_experiment(num_iter=0):
                             )
 
 if __name__ == '__main__':
+    start_time = time.time()
     TIME_OUT = 5
-    # run_experiment(1)
-    load_and_alternative_solve_hard_once()
-    print("Process Complete")
+    # run_experiment(6*5)
+    load_and_alternative_solve_hard(1) # about 30 seconds per instance
+    end_time = time.time()
+    print(f"Process Complete. Total time taken: {end_time-start_time}")
 
 
 # record timeout despite the output.
-
-
-
-
-
-
-# percentages of timeout
-# stack the time for each constraint together, and use percentages
-# arr in latex
-
-# more solvers

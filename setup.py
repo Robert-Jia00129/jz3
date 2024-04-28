@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='jz3',
-    version='0.1.1',
+    version='0.1.3',
     packages=find_packages(),
     description='A simple wrapper for Z3 solver',
     long_description=open('README.md').read(),
@@ -16,6 +16,7 @@ setup(
         'z3-solver',
         'matplotlib',
     ],
+    python_requires='>3.11',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

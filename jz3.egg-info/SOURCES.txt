@@ -3,18 +3,16 @@ LICENSE.txt
 README.md
 setup.py
 jz3/__init__.py
-jz3/solver.py
 jz3.egg-info/PKG-INFO
 jz3.egg-info/SOURCES.txt
 jz3.egg-info/dependency_links.txt
 jz3.egg-info/requires.txt
 jz3.egg-info/top_level.txt
 jz3/analysis/__init__.py
-jz3/analysis/compare_easy_sudokus.py
+jz3/analysis/compare_whole_problems.py
 jz3/analysis/plot_comparison.py
 jz3/analysis/archive/__init__.py
 jz3/analysis/archive/export_to_excel.py
-jz3/solvers/__init__ 2.py
 jz3/solvers/__init__.py
 jz3/solvers/cvc5-main/__init__ 2.py
 jz3/solvers/cvc5-main/__init__.py

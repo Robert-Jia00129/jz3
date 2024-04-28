@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: jz3
-Version: 0.1.1
+Version: 0.1.3
 Summary: A simple wrapper for Z3 solver
 Home-page: https://github.com/Robert-Jia00129/jz3
 Author: Sebastiaan Joosten, Zheng Robert Jia
@@ -15,8 +15,6 @@ Classifier: Programming Language :: Python :: 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE-Z3.txt
 License-File: LICENSE.txt
-Requires-Dist: z3-solver
-Requires-Dist: matplotlib
 
 # Argyle_Sudoku
 > This project was partly based on the code from [z3-sudoku](https://github.com/awkwardbunny/z3-sudoku)

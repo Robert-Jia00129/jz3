@@ -36,6 +36,7 @@ class ConstraintPlotter:
                     parsed_data.append(data_dict)
                 except Exception as e:
                     print("Error while parsing the dictionary, but continuing...")
+                    print(f"The line that incurred the issue is: ---->\n{e}\n<----- If nothing is printed in between, it's an empty space or new line encountered")
                     continue
         return parsed_data
 
@@ -107,6 +108,7 @@ class ConstraintPlotter:
 
         if combined_plot:
             min_length_combined = min(len(combined_times_true), len(combined_times_false))
+            # assert len(combined_times_false)==len(combined_times_true), f"There are unequal cases of conditions {len(combined_times_true)}, {len(combined_times_false)}"
             combined_true = combined_times_true[:min_length_combined]
             combined_false = combined_times_false[:min_length_combined]
 
@@ -132,7 +134,7 @@ class ConstraintPlotter:
 
 
 if __name__ == '__main__':
-    time_instances_file_path = '../time-record/particular_hard_instance_time_record/classic_time.txt'
+    time_instances_file_path = '../time-record/particular_hard_instance_time_record/argyle_time.txt'
     constraint_names = [("classic","argyle"),
                         ("distinct","PbEq"),
                         ("percol","inorder"),
@@ -140,4 +142,5 @@ if __name__ == '__main__':
                         ("prefill","no_prefill"),
                         ("gen_time","solve_time")]
     plotter = ConstraintPlotter(time_instances_file_path)
+    plotter.set_graph_properties(x_max=5,y_max=5)
     plotter.plot_constraints_comparison(1, solvers=["z3", "cvc5"],  combined_plot=True, constraint_names=constraint_names)

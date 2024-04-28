@@ -1,9 +1,10 @@
 import subprocess
 import time
-
+import os
+from pathlib import Path
 
 def run_cvc5(smt2_file, time_out:int=5):
-    cvc_path = "../../solvers/cvc5-macOS-arm64"
+    cvc_path = get_executable_path("cvc5-macOS-arm64")
     command = [cvc_path,smt2_file,"--lang","smt2"]
     start_time = time.time()
     did_timeout = False
@@ -19,7 +20,7 @@ def run_cvc5(smt2_file, time_out:int=5):
     ans = "timeout"
 
     end_time = time.time()
-
+    total_time = end_time-start_time
     if not did_timeout:
         if "unsat" in combined_output:
             ans = "unsat"
@@ -27,7 +28,9 @@ def run_cvc5(smt2_file, time_out:int=5):
             ans = "sat"
         else:
             ans = "unknown"
-    return (end_time - start_time, did_timeout, ans)
+    else:
+        total_time=time_out
+    return (total_time, did_timeout, ans)
 
 def run_z3(smt2_file: str, time_out:int = 5):
     """
@@ -47,7 +50,7 @@ def run_z3(smt2_file: str, time_out:int = 5):
         result = exc
     ans = "timeout"
     end_time = time.time()
-
+    total_time = end_time-start_time
     if not did_timeout:
         if "unsat" in combined_output:
             ans = "unsat"
@@ -55,7 +58,9 @@ def run_z3(smt2_file: str, time_out:int = 5):
             ans = "sat"
         else:
             ans = "unknown"
-    return (end_time - start_time, did_timeout, ans)
+    else:
+        total_time=time_out
+    return (total_time, did_timeout, ans)
 
 
 
@@ -86,5 +91,14 @@ def run_solvers(smt2_file,verbose=False):
     return results
 
 
+def get_executable_path(solver_path_in_solvers_dir):
+    # Get the directory of the current file (__file__ refers to the script in which this code is written)
+    dir_of_jz3 = Path(os.path.dirname(__file__)).parent
 
+    # Build the path to the executable
+    executable_path = os.path.join(dir_of_jz3, "solvers/"+solver_path_in_solvers_dir)
 
+    return executable_path
+
+if __name__=='__main__':
+    print(run_cvc5('/Users/jiazhenghao/Desktop/CodingProjects/jz3/jz3/problems_instances/particular_hard_instances_records/smt2_files/04_25_00_58_021714024682.151314'))

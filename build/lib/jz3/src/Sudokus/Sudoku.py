@@ -11,7 +11,7 @@ from copy import deepcopy
 import time
 from typing import List
 from pathlib import Path
-from jz3.src.z3_wrapper import Solver2SMT
+from jz3.src.z3_wrapper import Solver
 
 
 # z3.set_param('parallel.enable',True)
@@ -53,7 +53,7 @@ class Sudoku:
         :param hard_smt_logPath:
         """
         # a 1-D sudoku_array
-        self._solver = Solver2SMT()
+        self._solver = Solver()
         self._timeout = 5000
         self._incTimeOut = self._timeout
         self._solver.set("timeout", self._timeout)
@@ -77,7 +77,7 @@ class Sudoku:
         self._condition_var_distinct = z3.Bool('distinct')
         self._condition_var_pbeq = z3.Bool('pbeq')
         self._heuristic_search_mode = heuristic_search_mode
-        self._heuristic_solver = Solver2SMT(benchmark_mode=benchmark_mode)
+        self._heuristic_solver = Solver(benchmark_mode=benchmark_mode)
         self._heuristic_solver.add_global_constraints(z3.Or(self._condition_var_distinct,self._condition_var_pbeq))
 
         if seed == 0:
@@ -499,8 +499,7 @@ class Sudoku:
             else:
                 warnings.warn(
                     f"Unable to generate a full sudoku and the corresponding smt2 file, the current sudoku is: {self._nums}")
-
-        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
+        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{(str(time.time()).split('.')[1])[1:4]}.smt2"
         file_path = os.path.join(smt_dir, file_name)
         with open(file_path, 'w') as f:
             f.write(self._solver.generate_smtlib())
@@ -520,7 +519,7 @@ class Sudoku:
         par_dir = Path(self._hard_smt_logPath).parent
         if not os.path.exists(par_dir):
             os.makedirs(par_dir)
-        time_str = time.strftime("%m_%d_%H_%M_%S") + str(time.time())  # making sure no repetition in file name
+        time_str = time.strftime("%m_%d_%H_%M_%S") + (str(time.time()).split('.')[1])[1:4]  # making sure no repetition in file name
         # record as smt file
         with open(self._hard_smt_logPath + time_str, 'w') as myfile:
             print(self._solver.to_smt2(), file=myfile)
@@ -532,7 +531,7 @@ class Sudoku:
         # record sudoku as string file
         with open(self._hard_sudoku_logPath, 'a+') as myfile:
             sudoku_lst = ''.join(str(ele) for rows in self._nums for ele in rows)
-            print(f'{sudoku_lst}\t{self.condition_tpl}\t{pos}\t{value}\t{sat}\n', file=myfile)
+            print(f'{sudoku_lst}\t{self.condition_tpl}\t{pos}\t{value}\t{sat}', file=myfile)
 
     def generate_smt_with_additional_constraint(self, index: (int, int), try_val: int, is_sat: bool,
                                                 smt_dir: str) -> str:
@@ -549,13 +548,13 @@ class Sudoku:
 
         # Add the specific condition for the cell at 'index'
         i, j = index
-        if is_sat:
-            self.add_constaint(i, j, try_val)
-        else:
-            self.add_not_equal_constraint(i, j, try_val)
+        # if is_sat:
+        self.add_constaint(i, j, try_val)
+        # else:
+        #     self.add_not_equal_constraint(i, j, try_val)
 
         # Generate the file path for the SMT file
-        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{str(time.time())}.smt2"
+        file_name = f"sudoku_smt_{time.strftime('%m_%d_%H_%M_%S')}_{(str(time.time()).split('.')[1])[1:4]}.smt2" # making sure that there is no file name conflicts
         file_path = os.path.join(smt_dir, file_name)
 
         # Write the SMT-LIB representation to the file
@@ -794,6 +793,7 @@ def sudoku_conditional_constraints_test():
         print(model)
 
 
+# def
 
 if __name__ == "__main__":
     # Test classic case

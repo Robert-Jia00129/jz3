@@ -5,7 +5,7 @@ import warnings
 
 
 # child class to write push and pop to SMT2 file
-class Solver2SMT(z3.Solver):
+class Solver(z3.Solver):
     def __init__(self, benchmark_mode=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__start_recording = False
@@ -72,7 +72,7 @@ class Solver2SMT(z3.Solver):
             # possible combination of condition variables
             model = s.model()
 
-            solver_with_conditional_constraint = Solver2SMT()
+            solver_with_conditional_constraint = Solver()
 
             # add corresponding conditional constraints and try to solve
             for (conditional_constraint, condition) in self.__assertions:
@@ -98,7 +98,7 @@ class Solver2SMT(z3.Solver):
                 dist = 1
                 count = 0
                 while (count < max_count) and (dist > 0):
-                    solver_with_conditional_constraint = Solver2SMT()
+                    solver_with_conditional_constraint = Solver()
 
                     # add corresponding conditional constraints and try to solve
                     for (conditional_constraint, condition) in self.__assertions:
@@ -209,7 +209,7 @@ class Solver2SMT(z3.Solver):
 
 
 def simple_test():
-    solver = Solver2SMT(benchmark_mode=True)
+    solver = Solver(benchmark_mode=True)
 
     x = z3.Int('x')
     y = z3.Int('y')

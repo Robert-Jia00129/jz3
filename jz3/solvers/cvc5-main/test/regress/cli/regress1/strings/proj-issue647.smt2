@@ -1,7 +1,0 @@
-(set-logic ALL)
-(set-info :status sat)
-(set-option :strings-eager-reg false)
-(declare-const x String)
-(declare-const x2 (Seq String))
-(assert (str.prefixof x (seq.nth x2 0)))
-(check-sat)

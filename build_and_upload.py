@@ -23,7 +23,7 @@ def build_library():
         shutil.rmtree('dist')
 
     # Build the library
-    subprocess.run(['python', 'setup.py', 'sdist', 'bdist_wheel'])
+    subprocess.run(['python3', 'setup.py', 'sdist', 'bdist_wheel'])
 
 
 def upload_to_pypi():
@@ -38,10 +38,11 @@ def upload_to_pypi():
 
 def main():
     parser = argparse.ArgumentParser(description='Build and upload the library.')
-    parser.add_argument('--version', required=True, help='Version number of the library')
+    parser.add_argument('--version', required=False, help='Version number of the library')
     args = parser.parse_args()
 
-    update_version(args.version)
+    if args.version:
+        update_version(args.version)
     build_library()
 
     while True:
