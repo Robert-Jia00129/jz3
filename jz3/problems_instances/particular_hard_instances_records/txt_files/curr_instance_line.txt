@@ -1,1 +1,0 @@
-{'classic': 0, 'argyle': 6128, 'seed': 40}

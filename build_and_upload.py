@@ -21,6 +21,8 @@ def build_library():
     # Remove previous build artifacts
     if os.path.exists('dist'):
         shutil.rmtree('dist')
+    # if os.path.exists('build'):
+    #     shutil.rmtree('build')
 
     # Build the library
     subprocess.run(['python3', 'setup.py', 'sdist', 'bdist_wheel'])
