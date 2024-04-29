@@ -1,8 +1,10 @@
 from io import StringIO
 import z3
-import jz3.src.run_solvers as run_solvers
 import warnings
+import run_solvers
 
+class InequivalentConditionalConstraints(UserWarning):
+    pass
 
 # child class to write push and pop to SMT2 file
 class Solver(z3.Solver):
@@ -14,9 +16,10 @@ class Solver(z3.Solver):
         self.__global_constraints = z3.BoolVal(True)
         self.__smt_str = ""
         self.__condition_var_assignment_model = None
-        self.__latest_solvers_results = None
+        self.__solvers_results_for_different_conditional_variables = None
         self.__benchmark_mode = benchmark_mode
         self.__variables = set()
+        self.__result = None
 
     def __getattribute__(self, name):
         _allowed_methods = ['add', 'add_global_constraints', 'add_conditional_constraint',
@@ -24,7 +27,7 @@ class Solver(z3.Solver):
                             'start_recording', 'generate_smtlib', '_allowed_methods',
                             'ctx', 'solver', 'set', 'assert_exprs', 'to_smt2', 'assertions',
                             'get_condition_var_assignment_model',
-                            'get_latest_solvers_results']
+                            'get_var_assignments_and_solvers_performance']
         if name.startswith('_') or name in _allowed_methods:  # intentionally accessing a private variable
             return object.__getattribute__(self, name)
         else:
@@ -61,6 +64,47 @@ class Solver(z3.Solver):
             raise "There is no way to satisfy all condition variables provided under global constraint"
 
     def check_conditional_constraints(self, *args, condition=z3.BoolVal(True),max_count=5):
+        """
+        Evaluates conditional constraints on a given model and records various solver results based on the conditions.
+
+        This method checks the satisfiability of global constraints combined with additional conditional constraints,
+        provided dynamically. It also handles the benchmark mode where it tries to find distinct solutions by
+        maximizing the Hamming distance between successive models, thus exploring the space of possible solutions.
+
+        Parameters:
+        - args : tuple
+            The arguments that represent additional constraints to be temporarily added for this check.
+        - condition : z3.BoolVal, optional
+            A Z3 boolean expression that must be satisfied for the conditional constraints to be added.
+            Default is z3.BoolVal(True), which means all conditions are considered true.
+        - max_count : int, optional
+            The maximum number of distinct model solutions (if there exist) to find in benchmark mode. Default is 5.
+
+        Returns:
+        - z3.CheckSatResult
+            The result of the final check with all conditional constraints applied.
+
+        Raises:
+        - Exception
+            If it is impossible to find any model that satisfies both the global constraints and the provided
+            conditional constraints, indicating an unsatisfiable condition.
+
+        Modifies:
+        - self.__condition_var_assignment_model : list
+            Records the assignments of model variables that satisfy the conditions, excluding internal reference
+            variables like 'min_hamdist'.
+        - self.__history : list
+            Records actions taken during the method execution if recording is started.
+        - self.__solvers_results_for_different_conditional_variables : list
+            Stores results from different solvers if in benchmark mode.
+
+        Notes:
+        - In benchmark mode, this method also attempts to record and analyze differences in solver outputs by
+          generating different variable assignments that maximize the Hamming distance between them.
+        - This method internally manages several instances of the Solver class, depending on the mode of operation
+          and whether additional checks are performed.
+
+        """
         s = z3.Solver()  # no smt file recording required
         s.add(self.__global_constraints)
 
@@ -90,7 +134,7 @@ class Solver(z3.Solver):
             # Only launch multiple solvers when in benchmark mode
             if self.__benchmark_mode:
                 self.__condition_var_assignment_model = []
-                self.__latest_solvers_results = []
+                self.__solvers_results_for_different_conditional_variables = []
 
                 # find different combinations
                 opt = z3.Optimize()
@@ -110,10 +154,24 @@ class Solver(z3.Solver):
                     # append the combination to the results
                     # solver_with_conditional_constraint.start_recording()
                     result = solver_with_conditional_constraint.check()
+                    if self.__result is None:
+                        self.__result=result
+
+                    if result != self.__result: # discrepency between different combinations of condition variables
+                        msg = ("The results from adding different conditional constraints conflict with each other\n"
+                               "This is likely either because the conditional constraints added are not equivalent to one another\n"
+                               "Or one SMT solver was able to solve the problem, while the others aren't, in that case, ignore this warning by either\n"
+                               "1. adding `warnings.filterwarnings('ignore', category=InequivalentConditionalConstraints)` to the users' python script OR\n"
+                               "2. Running the python script through terminal with `python -W ignore::InequivalentConditionalConstraints script.py` ")
+                        warnings.warn(msg,InequivalentConditionalConstraints)
+
                     single_condition_smt_str = solver_with_conditional_constraint.to_smt2()
-                    print(single_condition_smt_str)
-                    self.__latest_solvers_results.append(run_solvers.run_solvers(smt2_str=single_condition_smt_str,verbose=True))
-                    self.__condition_var_assignment_model.append(model)
+
+                    variable_assignment = {str(var): model[var] for var in self.__variables if str(var) != 'min_hamdist'}
+                    self.__solvers_results_for_different_conditional_variables.append((
+                            str(variable_assignment)+': '+
+                            str(run_solvers.run_solvers(smt2_str=single_condition_smt_str, verbose=False))))
+                    self.__condition_var_assignment_model.append(variable_assignment)
                     min_hamdist = z3.Int("min_hamdist")
 
                     opt.add(min_hamdist <= z3.Sum(
@@ -128,7 +186,7 @@ class Solver(z3.Solver):
                 # store smt file/str
                 self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
 
-                with open("conditional_constraints.smt2", "w") as file:
+                with open("conditional_constraints.smt2", "w") as file: # TODO
                     file.write(self.__smt_str)
 
                 # launch multiple solvers and store resutls
@@ -205,8 +263,8 @@ class Solver(z3.Solver):
     def get_condition_var_assignment_model(self):
         return self.__condition_var_assignment_model
 
-    def get_latest_solvers_results(self):
-        return self.__latest_solvers_results
+    def get_var_assignments_and_solvers_performance(self):
+        return self.__solvers_results_for_different_conditional_variables
 
 
 def solver_demo():
@@ -234,8 +292,8 @@ def solver_demo():
     # Access the recorded combinations and performance results
     print("Condition Variable Assignment Models:")
     print(solver.get_condition_var_assignment_model())
-    print("Latest Solvers Results:")
-    print(solver.get_latest_solvers_results())
+    print("Solvers Results for each variable assignment:")
+    print(solver.get_var_assignments_and_solvers_performance())
 
 
 def optimizer_test():

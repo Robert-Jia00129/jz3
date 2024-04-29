@@ -2,7 +2,11 @@ import subprocess
 import time
 import os
 from pathlib import Path
+import warnings
+import config
 
+class SMTFileErrorWarning(UserWarning):
+    pass
 
 def run_cvc5(smt2_file, time_out: int = 5):
     cvc_path = get_executable_path("cvc5-macOS-arm64")
@@ -27,6 +31,10 @@ def run_cvc5(smt2_file, time_out: int = 5):
             ans = "unsat"
         elif "sat" in combined_output:
             ans = "sat"
+        elif "error" in combined_output.lower() or "unsupported" in combined_output.lower():
+            ans = "error"
+            warning_message = f"CVC5 encountered an error while processing {smt2_file}:\n{combined_output}"
+            warnings.warn(warning_message, SMTFileErrorWarning)
         else:
             ans = "unknown"
     else:
@@ -47,8 +55,11 @@ def run_z3(smt2_file: str, time_out: int = 5):
                                 capture_output=True, text=True, timeout=time_out)
         combined_output = ((result.stdout if result.stdout is not None else "") +
                            (result.stderr if result.stderr is not None else ""))  # capture all output
+        # print(f'z3 std output: {result.stdout}'
+        #       f'z3 stderr output: {result.stderr}')
     except subprocess.TimeoutExpired as exc:
         did_timeout = True
+        combined_output = ''
         result = exc
     ans = "timeout"
     end_time = time.time()
@@ -58,11 +69,15 @@ def run_z3(smt2_file: str, time_out: int = 5):
             ans = "unsat"
         elif "sat" in combined_output:
             ans = "sat"
+        elif "error" in combined_output.lower() or "unsupported" in combined_output.lower():
+            ans = "error"
+            warning_message = f"Z3 encountered an error while processing {smt2_file}:\n{combined_output}"
+            warnings.warn(warning_message, SMTFileErrorWarning)
         else:
             ans = "unknown"
     else:
         total_time = time_out
-    return (total_time, did_timeout, ans)
+    return total_time, did_timeout, ans
 
 
 def run_yices(smt2_file):
@@ -82,11 +97,16 @@ solvers = {
 }
 
 
-def run_solvers(smt2_file, verbose=False, time_out=5):
+def run_solvers(smt2_file:str='', smt2_str:str='', verbose=False, time_out=5):
     """
     time_out: in seconds
     """
     results = {}
+    if smt2_str and smt2_file=='':
+        smt2_file = os.path.join(os.path.dirname(__file__), 'smt_file.smt2')
+        with open(smt2_file, 'w') as f:
+            f.truncate()
+            f.write(smt2_str)
 
     for solver, run_function in solvers.items():
         if verbose:

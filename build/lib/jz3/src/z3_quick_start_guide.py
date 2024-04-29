@@ -1,4 +1,5 @@
-import jz3 as z3
+# import jz3 as z3
+import z3
 # Create solver instance
 s = z3.Solver()
 # Define variables

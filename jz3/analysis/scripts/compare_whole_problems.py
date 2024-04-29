@@ -130,7 +130,7 @@ def plot_comparison_for_constraint(files_directory, constraint_true='distinct', 
 if __name__ == '__main__':
     TIME_OUT = 5
 
-    files_directory = '/Users/jiazhenghao/Desktop/CodingProjects/jz3/jz3/time-record/whole_problem_time_records'
+    files_directory = './time-record/whole_problem_time_records'
     # plot_comparison_for_constraint(files_directory, 'distinct', 'PbEq', time_cap=200)  # extended
     plot_name = "full_problem_no_num comparison"
     # plot_comparison_for_constraint(files_directory, 'is_num', 'is_bool',

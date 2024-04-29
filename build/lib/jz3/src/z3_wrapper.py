@@ -110,13 +110,14 @@ class Solver(z3.Solver):
                     # append the combination to the results
                     # solver_with_conditional_constraint.start_recording()
                     result = solver_with_conditional_constraint.check()
-                    self.__latest_solvers_results.append(run_solvers.run_solvers("conditional_constraints.smt2"))
+                    single_condition_smt_str = solver_with_conditional_constraint.to_smt2()
+                    print(single_condition_smt_str)
+                    self.__latest_solvers_results.append(run_solvers.run_solvers(smt2_str=single_condition_smt_str,verbose=True))
                     self.__condition_var_assignment_model.append(model)
                     min_hamdist = z3.Int("min_hamdist")
 
                     opt.add(min_hamdist <= z3.Sum(
                         tuple(z3.If((var == bool(model[var])), 0, 1) for var in self.__variables)))
-                    # opt.add(min_hamdist <= z3.Sum([0,1,0,1]))
 
                     opt.maximize(min_hamdist)
                     opt.check()
@@ -127,7 +128,7 @@ class Solver(z3.Solver):
                 # store smt file/str
                 self.__smt_str = solver_with_conditional_constraint.generate_smtlib()
 
-                with open("conditional_constraints.smt2", "w") as file:
+                with open("conditional_constraints.smt2", "w") as file: # TODO
                     file.write(self.__smt_str)
 
                 # launch multiple solvers and store resutls
@@ -208,7 +209,7 @@ class Solver(z3.Solver):
         return self.__latest_solvers_results
 
 
-def simple_test():
+def solver_demo():
     solver = Solver(benchmark_mode=True)
 
     x = z3.Int('x')
@@ -221,6 +222,7 @@ def simple_test():
     condition2 = z3.Bool('condition2')
 
     solver.add_global_constraints(z3.Or(condition1, condition2))
+    solver.add_global_constraints(z3.Distinct(condition1,condition2))
 
     solver.add_conditional_constraint(x < 5, condition=condition1)
     solver.add_conditional_constraint(x > 5, condition=condition2)
@@ -283,7 +285,6 @@ def optimizer_test():
     print("Combination 2:")
     print(combination2)
 
-
 if __name__ == '__main__':
-    # simple_test()
-    optimizer_test()
+    solver_demo()
+    # optimizer_test()

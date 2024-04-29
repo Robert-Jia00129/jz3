@@ -3,6 +3,7 @@ import time
 import os
 from pathlib import Path
 import warnings
+import config
 
 class SMTFileErrorWarning(UserWarning):
     pass
@@ -54,8 +55,8 @@ def run_z3(smt2_file: str, time_out: int = 5):
                                 capture_output=True, text=True, timeout=time_out)
         combined_output = ((result.stdout if result.stdout is not None else "") +
                            (result.stderr if result.stderr is not None else ""))  # capture all output
-        print(f'z3 std output: {result.stdout}'
-              f'z3 stderr output: {result.stderr}')
+        # print(f'z3 std output: {result.stdout}'
+        #       f'z3 stderr output: {result.stderr}')
     except subprocess.TimeoutExpired as exc:
         did_timeout = True
         combined_output = ''

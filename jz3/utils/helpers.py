@@ -25,15 +25,19 @@ def remove_duplicates_files(files_dir):
 
 def shuffle_and_remove_duplicates_files(files_dir):
     """Remove duplicate lines and then shuffle the rest in each file in the specified directory."""
+    print(f'Finished for: ')
     for filename in os.listdir(files_dir):
-        file_path = os.path.join(files_dir, filename)
-        if os.path.isfile(file_path):
-            with open(file_path, 'r') as file:
-                lines = set(file.readlines())
-            lines = list(lines)
-            random.shuffle(lines)
-            with open(file_path, 'w') as file:
-                file.writelines(lines)
+        if not filename.startswith('.'):  # Skip hidden files
+            file_path = os.path.join(files_dir, filename)
+            if os.path.isfile(file_path):
+                with open(file_path, 'r') as file:
+                    lines = set(file.readlines())
+                lines = list(lines)
+                random.shuffle(lines)
+                with open(file_path, 'w') as file:
+                    file.writelines(lines)
+            print(f"{filename} ", end='')
+    print(f'\nFinished shuffling and removing duplicates for all files in {files_dir}')
 
 
 def clean_dir(file_dir_lst):
@@ -45,11 +49,6 @@ def clean_dir(file_dir_lst):
                 if os.path.isfile(file_path):
                     open(file_path, 'w').close()  # Open in write mode and immediately close to clear contents
 
-def auto_clean():
-    """Cleans predefined directories."""
-    # TODO
-    directories_to_clean = ['/path/to/dir1', '/path/to/dir2']
-    clean_dir(directories_to_clean)
 
 def delete_dir(file_dir_lst):
     """Deletes each specified directory and its contents if it exists."""
@@ -63,12 +62,6 @@ def delete_dir(file_dir_lst):
         except OSError as e:
             if e.errno != errno.ENOENT:  # No such file or directory
                 raise  # Re-raise exception if a different error occurred
-
-def delete_experiment():
-    """Deletes predefined directories for a hard reset of experiments."""
-    # TODO
-    directories_to_delete = ['/path/to/experiment1', '/path/to/experiment2']
-    delete_dir(directories_to_delete)
 
 
 if __name__=='__main__':

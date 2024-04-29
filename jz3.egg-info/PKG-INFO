@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: jz3
-Version: 0.1.7
+Version: 0.1.10
 Summary: A simple wrapper for Z3 solver
 Home-page: https://github.com/Robert-Jia00129/jz3
 Author: Sebastiaan Joosten, Zheng Robert Jia

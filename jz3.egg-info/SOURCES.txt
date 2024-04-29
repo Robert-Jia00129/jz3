@@ -18,13 +18,12 @@ jz3/analysis/scripts/plot_comparison.py
 jz3/solvers/__init__.py
 jz3/solvers/cvc5-macOS-arm64
 jz3/src/__init__.py
-jz3/src/clean_up.py
+jz3/src/config.py
 jz3/src/run_solvers.py
 jz3/src/z3_quick_start_guide.py
 jz3/src/z3_wrapper.py
 jz3/src/SMTs/SMTs.py
 jz3/src/SMTs/__init__.py
-jz3/src/Sudokus/__init__.py
 jz3/tests/__init__.py
 jz3/tests/test_solver.py
 jz3/utils/__init__.py
