@@ -1,0 +1,50 @@
+jz3
+├── __init__.py
+├── __pycache__
+│   └── __init__.cpython-311.pyc
+├── analysis
+│   ├── __init__.py
+│   ├── archive
+│   ├── compare_whole_problems.py
+│   ├── images
+│   ├── plot_comparison.py
+│   ├── scripts
+│   └── workflow.jpg
+├── problems_instances
+│   ├── README.md
+│   ├── particular_hard_instances_records
+│   └── whole_problem_records
+├── solvers
+│   ├── __init__.py
+│   ├── bitwuzla-0.3.2
+│   ├── cvc5-macOS-arm64
+│   ├── cvc5-main
+│   └── vampire-4.8casc2023
+├── src
+│   ├── SMTs
+│   ├── Sudokus
+│   ├── __init__.py
+│   ├── __pycache__
+│   ├── clean_up.py
+│   ├── conditional_constraints.smt2
+│   ├── my-smt.smt2
+│   ├── run_solvers.py
+│   ├── z3_quick_start_guide.py
+│   ├── z3_sudoku_solved.smt2
+│   └── z3_wrapper.py
+├── sudoku_database
+│   ├── argyle_full_sudokus.txt
+│   ├── argyle_holes_sudokus.txt
+│   ├── classic_full_sudokus.txt
+│   ├── classic_holes_sudokus.txt
+│   ├── curr_line_of_solving_full_sudokus.txt
+│   └── shuffle.py
+├── tests
+│   ├── __init__.py
+│   ├── __pycache__
+│   └── test_solver.py
+└── time-record
+    ├── particular_hard_instance_time_record
+    └── whole_problem_time_records
+
+23 directories, 25 files

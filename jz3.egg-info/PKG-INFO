@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: jz3
+Version: 0.1.12
+Summary: A simple wrapper for Z3 solver
+Home-page: https://github.com/Robert-Jia00129/jz3
+Author: Sebastiaan Joosten, Zheng Robert Jia
+Author-email: jia00129@umn.edu
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE-Z3.txt
+License-File: LICENSE.txt
+Requires-Dist: z3-solver
+Requires-Dist: matplotlib
+
+# JZ3
+> This project was partly based on the code from [z3-sudoku](https://github.com/awkwardbunny/z3-sudoku)
+
+This project uses python z3-solver to benchmark encoding techniques to solving the same problem. 
+It then compares the efficiency of each method and between different encoding techniques.
+
+The link to the PyPi package is [https://pypi.org/project/jz3/](https://pypi.org/project/jz3/)
+The link to the github repo is [https://github.com/Robert-Jia00129/jz3](https://github.com/Robert-Jia00129/jz3)
+
+- `/solvers`: Houses executables and related files for various SMT solvers used in the project.
+
+ for analyzing solver performance and generating images for reports or presentations.
