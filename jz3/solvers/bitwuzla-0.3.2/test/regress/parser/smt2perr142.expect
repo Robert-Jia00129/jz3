@@ -1,1 +1,0 @@
-regress/parser/smt2perr142.smt2:2:3: upper index must be >= lower index as argument to 'extract'

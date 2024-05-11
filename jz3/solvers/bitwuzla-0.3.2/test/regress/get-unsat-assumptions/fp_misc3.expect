@@ -1,2 +1,0 @@
-unsat
-((= (fp.abs a) b))

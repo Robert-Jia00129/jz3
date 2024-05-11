@@ -1,5 +1,0 @@
-(set-info :status sat)
-(declare-const v (_ BitVec 1))
-(declare-const _v (_ BitVec 1))
-(assert (= (bvmul ((_ zero_extend 191) _v) ((_ zero_extend 191) v)) (bvmul ((_ zero_extend 191) v) ((_ zero_extend 191) v))))
-(check-sat)

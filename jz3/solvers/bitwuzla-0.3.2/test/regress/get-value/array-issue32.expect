@@ -1,3 +1,0 @@
-unsat
-sat
-((m@0 (store ((as const (Array (_ BitVec 2) (_ BitVec 8))) #b00000000) #b00 #b00000000)))
