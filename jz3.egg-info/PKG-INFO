@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jz3
 Version: 0.1.12
 Summary: A simple wrapper for Z3 solver
@@ -18,6 +18,17 @@ License-File: LICENSE-Z3.txt
 License-File: LICENSE.txt
 Requires-Dist: z3-solver
 Requires-Dist: matplotlib
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # JZ3
 > This project was partly based on the code from [z3-sudoku](https://github.com/awkwardbunny/z3-sudoku)
