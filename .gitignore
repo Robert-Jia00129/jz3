@@ -2,3 +2,5 @@ build/
 dist/
 jz3.egg-info/
 venv/
+__pycache__/
+.DS_Store
