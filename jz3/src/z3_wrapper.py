@@ -146,10 +146,12 @@ class Solver(z3.Solver):
 
                     # add corresponding conditional constraints and try to solve
                     for (conditional_constraint, condition) in self.__assertions:
+                        print(f"{ model.eval(condition)= }")
                         if model.eval(condition):
                             if self.__start_recording:
                                 self.__history.append(("add", str(conditional_constraint.sexpr())))
                             solver_with_conditional_constraint.add(conditional_constraint)
+                            print(conditional_constraint)
 
                     # append the combination to the results
                     # solver_with_conditional_constraint.start_recording()
@@ -177,10 +179,13 @@ class Solver(z3.Solver):
                     opt.add(min_hamdist <= z3.Sum(
                         tuple(z3.If((var == bool(model[var])), 0, 1) for var in self.__variables)))
 
-                    opt.maximize(min_hamdist)
+                    objective = opt.maximize(min_hamdist)
                     opt.check()
                     model = opt.model()
-                    dist = model[min_hamdist].as_long()
+
+                    # min_hamdist_val = model[min_hamdist]
+                    min_hamdist_val = (min_hamdist)
+                    dist = opt.upper(objective).as_long()
                     count += 1
 
                 # store smt file/str

@@ -1,6 +1,7 @@
 import subprocess
 import time
 import os
+import sys
 from pathlib import Path
 import warnings
 
@@ -8,7 +9,12 @@ class SMTFileErrorWarning(UserWarning):
     pass
 
 def run_cvc5(smt2_file, time_out: int = 5):
-    cvc_path = get_executable_path("cvc5-macOS-arm64")
+    if sys.platform == "darwin":  # macOS
+        cvc_path = get_executable_path("cvc5-macOS-arm64")
+    elif sys.platform == "linux":  # linux
+        cvc_path = get_executable_path("cvc5-linux-x86")
+    else:
+        raise NotImplementedError(f"{sys.platform} is not currently supported")
     command = [cvc_path, smt2_file, "--lang", "smt2"]
     start_time = time.time()
     did_timeout = False
