@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jz3"
+version = "0.1.13"
+description = "A simple wrapper for Z3 solver"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name="Sebastiaan Joosten" },
+  { name="Zheng Robert Jia", email="zjia71@gatech.edu" }
+]
+dependencies = [
+  "z3-solver",
+  "matplotlib",
+]
+license = { text = "MIT" }
+
+[tool.setuptools.packages.find]
+include = ["jz3", "jz3.*"]
+
+[tool.setuptools.package-data]
+jz3 = ["solvers/*"]
