@@ -51,7 +51,7 @@ class Solver(z3.Solver):
                 self.__history.append(("add", str(arg.sexpr())))
         super().add(*args)
 
-    def add_conditional_constraint(self, *args, condition=z3.BoolVal(True)):
+    def add_conditional_constraint(self, *args, condition: z3.BoolRef=z3.BoolVal(True)):
         if condition is None:
             condition = z3.BoolVal(True)
         for conditional_constraint in args:
@@ -61,12 +61,12 @@ class Solver(z3.Solver):
         s.add(self.__global_constraints)
 
         if s.check() != z3.sat:
-            raise "There is no way to satisfy all condition variables provided under global constraint"
+            raise RuntimeError("There is no way to satisfy all condition variables provided under global constraint")
 
     def check_conditional_constraints(self, *args, condition=z3.BoolVal(True),max_count=5):
         """
         Evaluates conditional constraints on a given model and records various solver results based on the conditions.
-
+        
         This method checks the satisfiability of global constraints combined with additional conditional constraints,
         provided dynamically. It also handles the benchmark mode where it tries to find distinct solutions by
         maximizing the Hamming distance between successive models, thus exploring the space of possible solutions.
@@ -277,27 +277,33 @@ class Solver(z3.Solver):
 
 def solver_demo():
     solver = Solver(benchmark_mode=True)
-
+    
+    # Create an integer variable to represent time
     x = z3.Int('x')
-    y = z3.Int('y')
-
-    solver.add(x > 0)
-    solver.add(y > 0)
-
-    condition1 = z3.Bool('condition1')
-    condition2 = z3.Bool('condition2')
-
+    
+    # Create condition variables for two different encodings
+    condition1 = z3.Bool('encoding1')
+    condition2 = z3.Bool('encoding2')
+    
+    # Define the first encoding: Time `x` between 8 and 17 but not equal to 12
+    solver.add_conditional_constraint(z3.And(8 <= x, x <= 17, x != 12), condition=condition1)
+    
+    # Define the second encoding: Time `x` is either between 8 and 12, or between 12 and 17, excluding 12 itself
+    solver.add_conditional_constraint(
+        z3.Or(z3.And(8 <= x, x < 12), z3.And(12 < x, x <= 17)),
+        condition=condition2
+    )
+    
+    # Ensure the two encoding styles are distinct
     solver.add_global_constraints(z3.Or(condition1, condition2))
-    solver.add_global_constraints(z3.Distinct(condition1,condition2))
-
-    solver.add_conditional_constraint(x < 5, condition=condition1)
-    solver.add_conditional_constraint(x > 5, condition=condition2)
-
+    solver.add_global_constraints(z3.Distinct(condition1, condition2))
+    
+    # Start recording and solve the problem
     solver.start_recording()
     result = solver.check_conditional_constraints()
     print(result)
-
-    # Access the recorded combinations and performance results
+    
+    # Display recorded combinations and performance results
     print("Condition Variable Assignment Models:")
     print(solver.get_condition_var_assignment_model())
     print("Solvers Results for each variable assignment:")
