@@ -1,6 +1,8 @@
+(set-logic QF_LIA)
 ; benchmark generated from python API
 (set-info :status unknown)
 (declare-fun x () Int)
 (assert
- (or (and (>= x 8) (< x 12)) (and (> x 12) (<= x 17))))
+ (= x 1))
 (check-sat)
+; Result: sat
