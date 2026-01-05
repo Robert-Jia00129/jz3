@@ -4,6 +4,7 @@ import os
 import sys
 from pathlib import Path
 import warnings
+from typing import *
 
 class SMTFileErrorWarning(UserWarning):
     pass
@@ -51,7 +52,7 @@ def run_z3(smt2_file: str, time_out: int = 5):
     """
     :param smt_log_file_path:
     :param time_out: in seconds
-    :return:
+    :return: (total_time, did_timeout, ans)
     """
     start_time = time.time()
     did_timeout = False
@@ -67,6 +68,7 @@ def run_z3(smt2_file: str, time_out: int = 5):
         combined_output = ''
         result = exc
     return shared_code("Z3",start_time,did_timeout,combined_output,smt2_file,time_out)
+
 def shared_code(solvername,start_time,did_timeout,combined_output,smt2_file,time_out):
     ans = "timeout"
     end_time = time.time()
@@ -108,7 +110,7 @@ def run_solvers(
         verbose: bool = False,time_out: int = 5,
         solvers: "str | list[str] | tuple[str, ...] | None" = None,
         solver_map: dict = solvers,
-):
+) -> Dict[str, Tuple[float, bool, str]]:
     """
     time_out: in seconds
     solvers:
@@ -117,6 +119,8 @@ def run_solvers(
       - "z3" / "cvc5" (case-insensitive): run that solver
       - list/tuple of solver names: run those solvers
     solver_map: mapping from solver name -> runner function
+    
+    :return: mapping from solver name -> (total_time, did_timeout, ans)
     """
     results = {}
 

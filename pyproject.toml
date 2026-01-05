@@ -13,8 +13,9 @@ authors = [
   { name="Zheng Robert Jia", email="zjia71@gatech.edu" }
 ]
 dependencies = [
-  "z3-solver",
-  "matplotlib",
+  "z3-solver>=4.15.3.0",
+  "matplotlib>=3.10.7",
+  "pytest",
 ]
 license = { text = "MIT" }
 
