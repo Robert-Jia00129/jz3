@@ -1,0 +1,22 @@
+[
+  {
+    "assignment": {
+      "arith_distinct": false,
+      "arith_pbeq": false,
+      "bool_distinct": false,
+      "bool_pbeq": true
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun bp_c1_is_1 () Bool)\n(declare-fun bp_c1_is_2 () Bool)\n(declare-fun bp_c1_is_3 () Bool)\n(declare-fun bp_c2_is_1 () Bool)\n(declare-fun bp_c2_is_2 () Bool)\n(declare-fun bp_c2_is_3 () Bool)\n(declare-fun bp_c3_is_1 () Bool)\n(declare-fun bp_c3_is_2 () Bool)\n(declare-fun bp_c3_is_3 () Bool)\n(declare-fun cell1 () Int)\n(declare-fun cell2 () Int)\n(declare-fun cell3 () Int)\n(assert ((_ pbeq 1 1 1 1) bp_c1_is_1 bp_c1_is_2 bp_c1_is_3))\n(assert (=> bp_c1_is_1 (= cell1 1)))\n(assert (=> bp_c1_is_2 (= cell1 2)))\n(assert (=> bp_c1_is_3 (= cell1 3)))\n(assert ((_ pbeq 1 1 1 1) bp_c2_is_1 bp_c2_is_2 bp_c2_is_3))\n(assert (=> bp_c2_is_1 (= cell2 1)))\n(assert (=> bp_c2_is_2 (= cell2 2)))\n(assert (=> bp_c2_is_3 (= cell2 3)))\n(assert ((_ pbeq 1 1 1 1) bp_c3_is_1 bp_c3_is_2 bp_c3_is_3))\n(assert (=> bp_c3_is_1 (= cell3 1)))\n(assert (=> bp_c3_is_2 (= cell3 2)))\n(assert (=> bp_c3_is_3 (= cell3 3)))\n(assert ((_ pbeq 1 1 1 1) bp_c1_is_1 bp_c2_is_1 bp_c3_is_1))\n(assert ((_ pbeq 1 1 1 1) bp_c1_is_2 bp_c2_is_2 bp_c3_is_2))\n(assert ((_ pbeq 1 1 1 1) bp_c1_is_3 bp_c2_is_3 bp_c3_is_3))\n(check-sat-assuming ((= cell1 1) (= cell2 2)))\n; Result: sat\n"
+  },
+  {
+    "assignment": {
+      "arith_distinct": false,
+      "arith_pbeq": false,
+      "bool_distinct": true,
+      "bool_pbeq": false
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun bd_c1_is_1 () Bool)\n(declare-fun bd_c1_is_2 () Bool)\n(declare-fun bd_c1_is_3 () Bool)\n(declare-fun bd_c2_is_1 () Bool)\n(declare-fun bd_c2_is_2 () Bool)\n(declare-fun bd_c2_is_3 () Bool)\n(declare-fun bd_c3_is_1 () Bool)\n(declare-fun bd_c3_is_2 () Bool)\n(declare-fun bd_c3_is_3 () Bool)\n(declare-fun cell1 () Int)\n(declare-fun cell2 () Int)\n(declare-fun cell3 () Int)\n(assert ((_ pbeq 1 1 1 1) bd_c1_is_1 bd_c1_is_2 bd_c1_is_3))\n(assert (=> bd_c1_is_1 (= cell1 1)))\n(assert (=> bd_c1_is_2 (= cell1 2)))\n(assert (=> bd_c1_is_3 (= cell1 3)))\n(assert ((_ pbeq 1 1 1 1) bd_c2_is_1 bd_c2_is_2 bd_c2_is_3))\n(assert (=> bd_c2_is_1 (= cell2 1)))\n(assert (=> bd_c2_is_2 (= cell2 2)))\n(assert (=> bd_c2_is_3 (= cell2 3)))\n(assert ((_ pbeq 1 1 1 1) bd_c3_is_1 bd_c3_is_2 bd_c3_is_3))\n(assert (=> bd_c3_is_1 (= cell3 1)))\n(assert (=> bd_c3_is_2 (= cell3 2)))\n(assert (=> bd_c3_is_3 (= cell3 3)))\n(assert (not (and bd_c1_is_1 bd_c2_is_1)))\n(assert (not (and bd_c1_is_1 bd_c3_is_1)))\n(assert (not (and bd_c2_is_1 bd_c3_is_1)))\n(assert (not (and bd_c1_is_2 bd_c2_is_2)))\n(assert (not (and bd_c1_is_2 bd_c3_is_2)))\n(assert (not (and bd_c2_is_2 bd_c3_is_2)))\n(assert (not (and bd_c1_is_3 bd_c2_is_3)))\n(assert (not (and bd_c1_is_3 bd_c3_is_3)))\n(assert (not (and bd_c2_is_3 bd_c3_is_3)))\n(check-sat-assuming ((= cell1 1) (= cell2 2)))\n; Result: sat\n"
+  }
+]

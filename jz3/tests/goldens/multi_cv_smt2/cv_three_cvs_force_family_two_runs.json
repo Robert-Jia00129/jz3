@@ -1,0 +1,20 @@
+[
+  {
+    "assignment": {
+      "A1": false,
+      "A2": true,
+      "OTHER": false
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun x () Int)\n(assert (= x 1))\n(check-sat-assuming ((= x 1)))\n; Result: sat\n"
+  },
+  {
+    "assignment": {
+      "A1": true,
+      "A2": false,
+      "OTHER": false
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun x () Int)\n(assert (= x 1))\n(check-sat-assuming ((= x 1)))\n; Result: sat\n"
+  }
+]
