@@ -29,7 +29,7 @@ def _assert_matches_golden(name: str, actual: str) -> None:
     """
     golden_path = GOLDENS_DIR / name
 
-    if UPDATE_GOLDENS:
+    if UPDATE_GOLDENS and not os.path.exists(golden_path):
         _write_text(golden_path, actual)
         return
 

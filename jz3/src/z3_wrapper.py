@@ -40,7 +40,7 @@ class Solver(z3.Solver):
                             'generate_smtlib', '_allowed_methods',
                             'ctx', 'solver', 'set', 'assert_exprs', 'to_smt2', 'assertions',
                             'get_condition_var_assignment_model',
-                            'get_var_assignments_and_solvers_performance']
+                            'get_var_assignments_and_solvers_performance', 'get_runs']
         if name.startswith('_') or name in _allowed_methods:  # intentionally accessing a private variable
             return object.__getattribute__(self, name)
         else:
@@ -57,15 +57,20 @@ class Solver(z3.Solver):
         return
     
     def _collect_decls(self, e: z3.ExprRef):
-        # Collect all uninterpreted symbols used in e (consts + uninterpreted functions).
-        # This ignores built-in operators like +, <=, And, etc.
-        decls = z3.z3util.get_decls(e)
+        """
+        Collect all uninterpreted symbols used in e (consts + uninterpreted functions),
+        and store their SMT-LIB declare-fun lines in self.__decls.
+
+        This avoids relying on z3.z3util.get_decls (not available in many z3-solver builds).
+        """
         
-        for d in decls:
+        def add_decl(d: z3.FuncDeclRef):
             if d.kind() != z3.Z3_OP_UNINTERPRETED:
-                continue
+                return
             
             name = d.name()
+            if name in self.__decls:
+                return
             
             # Const (arity 0)
             if d.arity() == 0:
@@ -76,7 +81,32 @@ class Solver(z3.Solver):
                 rng = d.range().sexpr()
                 line = f"(declare-fun {name} ({dom}) {rng})"
             
-            self.__decls.setdefault(name, line)
+            self.__decls[name] = line
+        
+        seen = set()
+        
+        def walk(t: z3.AstRef):
+            # Avoid revisiting nodes
+            tid = t.get_id()
+            if tid in seen:
+                return
+            seen.add(tid)
+            
+            # For apps: collect decl and walk children
+            if z3.is_app(t):
+                add_decl(t.decl())
+                for ch in t.children():
+                    walk(ch)
+                return
+            
+            # Quantifiers (unlikely in QF_* but safe): walk body
+            if z3.is_quantifier(t):
+                walk(t.body())
+                return
+            
+            # Other AST nodes: nothing to do
+        
+        walk(e)
     
     def add_global_constraints(self, *constraints):
         """
@@ -145,7 +175,7 @@ class Solver(z3.Solver):
             lits.append(z3.Not(v) if val else v)
         return z3.Or(lits)
     
-    def check_conditional_constraints(self, *args, condition=z3.BoolVal(True), max_count=5):
+    def check_conditional_constraints(self, *args, condition=z3.BoolVal(True), max_count=3):
         """
         Meta-solver approach: enumerate CV assignments satisfying __global_constraints (no duplicates),
         materialize enabled conditional constraints, and solve.
@@ -231,154 +261,154 @@ class Solver(z3.Solver):
         
         return first_result
     
-    def check_conditional_constraints_hamming(self, *args, condition=z3.BoolVal(True), max_count=5):
-        """
-        # TODO: BUGFIX: Not tested yet.
-        Evaluates conditional constraints on a given model and records various solver results based on the conditions.
-        
-        conditions should be atomic boolean variables! composed expression like z3.And(a,b) is not allowed!
-        
-        This method checks the satisfiability of global constraints combined with additional conditional constraints,
-        provided dynamically. It also handles the benchmark mode where it tries to find distinct solutions by
-        maximizing the Hamming distance between successive models, thus exploring the space of possible solutions.
-
-        Parameters:
-        - args : tuple
-            The arguments that represent additional constraints to be temporarily added for this check.
-        - condition : z3.BoolVal, optional
-            A Z3 boolean expression that must be satisfied for the conditional constraints to be added.
-            Default is z3.BoolVal(True), which means all conditions are considered true.
-        - max_count : int, optional
-            The maximum number of distinct model solutions (if there exist) to find in benchmark mode. Default is 5.
-
-        Returns:
-        - z3.CheckSatResult
-            The result of the final check with all conditional constraints applied.
-
-        Notes:
-        - In benchmark mode, this method also attempts to record and analyze differences in solver outputs by
-          generating different variable assignments that maximize the Hamming distance between them.
-        - This method internally manages several instances of the Solver class, depending on the mode of operation
-          and whether additional checks are performed.
-
-        """
-        s = z3.Solver()
-        s.add(self.__global_constraints)
-        
-        # temporarily add the constraint and conditional constraint to be checked.
-        for arg in args:  # append the checked condition
-            self.__assertions.append((arg, condition))
-        
-        if s.check() == z3.sat:
-            # possible combination of condition variables
-            model = s.model()
-            
-            solver_with_conditional_constraint = Solver()
-            
-            # add corresponding conditional constraints and try to solve
-            for (conditional_constraint, condition) in self.__assertions:
-                if condition == z3.BoolVal(True) or model.eval(condition):
-                    self.__history.append(("add", str(conditional_constraint.sexpr())))
-                    solver_with_conditional_constraint.add(conditional_constraint)
-            
-            # Don't really record the smt files
-            solver_with_conditional_constraint.start_recording()
-            result = solver_with_conditional_constraint.check()
-            
-            self.__condition_var_assignment_model = [model]
-            
-            # Only launch multiple solvers when in benchmark mode
-            if self.__multi_solver_mode:
-                self.__runs = []
-                
-                # find different combinations
-                opt = z3.Optimize()
-                opt.add(self.__global_constraints)
-                
-                # Only atomic Bool CVs
-                cv_vars = [
-                    v for v in self.__CVs
-                    if z3.is_bool(v)
-                       and z3.is_const(v)
-                       and v.decl().kind() == z3.Z3_OP_UNINTERPRETED
-                ]
-                
-                def eval_bool(m, v):
-                    return z3.is_true(m.eval(v, model_completion=True))
-                
-                def block_assignment(assign_dict):
-                    # Blocks exactly this assignment
-                    lits = []
-                    for v in cv_vars:
-                        val = assign_dict[v]
-                        lits.append(z3.Not(v) if val else v)
-                    return z3.Or(lits) if lits else z3.BoolVal(False)
-                
-                prev_assignments = []  # list[dict[BoolRef,bool]]
-                
-                count = 0
-                min_dist = z3.Int("min_hamdist")
-                
-                while count < max_count:
-                    opt.push()
-                    
-                    # Objective: assignments as different as possible
-                    if prev_assignments:
-                        dists = []
-                        for a in prev_assignments:
-                            dists.append(z3.Sum([
-                                z3.If(v != z3.BoolVal(a[v]), 1, 0)
-                                for v in cv_vars
-                            ]))
-                        
-                        opt.add(min_dist >= 0)
-                        for d in dists:
-                            opt.add(min_dist <= d)
-                        
-                        h = opt.maximize(min_dist)
-                    else:  # First pick: no prior points, any sat assignment is fine
-                        h = None
-                    
-                    if opt.check() != z3.sat:  # exhausted all assignments
-                        opt.pop()
-                        break
-                    
-                    m = opt.model()
-                    
-                    # Materialize current assignment into Python dict
-                    curr = {v: eval_bool(m, v) for v in cv_vars}
-                    
-                    opt.pop()
-                    
-                    # Use 'curr' to build/run solver_with_conditional_constraint as you do now
-                    solver_with_conditional_constraint = Solver()
-                    for (conditional_constraint, condition) in self.__assertions:
-                        if condition == z3.BoolVal(True) or curr[condition]:
-                            solver_with_conditional_constraint.add(conditional_constraint)
-                    
-                    result = solver_with_conditional_constraint.check()
-                    
-                    prev_assignments.append(curr)
-                    opt.add(block_assignment(curr))
-                    count += 1
-                
-                # store smt file/str
-                self.__canonical_smt_str = solver_with_conditional_constraint.generate_smtlib()
-                
-                with open("conditional_constraints.smt2", "w") as file:  # TODO
-                    file.write(self.__canonical_smt_str)
-                
-                # launch multiple solvers and store resutls
-            
-            # pop the temporarily added conditional constraints
-            for _ in args:
-                self.__assertions.pop()
-            
-            self.__history.append(("result", str(solver_with_conditional_constraint.check(*args))))
-            return result
-        else:
-            raise RuntimeError("Impossible to find any way of building constraints"
-                               "The conditional constraints are not satisfiable under global constraints ")
+    # def check_conditional_constraints_hamming(self, *args, condition=z3.BoolVal(True), max_count=5):
+    #     """
+    #     # TODO: BUGFIX: Very deprecated. Refer to check_conditional_constraints on check conditional logic
+    #     Evaluates conditional constraints on a given model and records various solver results based on the conditions.
+    #
+    #     conditions should be atomic boolean variables! composed expression like z3.And(a,b) is not allowed!
+    #
+    #     This method checks the satisfiability of global constraints combined with additional conditional constraints,
+    #     provided dynamically. It also handles the benchmark mode where it tries to find distinct solutions by
+    #     maximizing the Hamming distance between successive models, thus exploring the space of possible solutions.
+    #
+    #     Parameters:
+    #     - args : tuple
+    #         The arguments that represent additional constraints to be temporarily added for this check.
+    #     - condition : z3.BoolVal, optional
+    #         A Z3 boolean expression that must be satisfied for the conditional constraints to be added.
+    #         Default is z3.BoolVal(True), which means all conditions are considered true.
+    #     - max_count : int, optional
+    #         The maximum number of distinct model solutions (if there exist) to find in benchmark mode. Default is 5.
+    #
+    #     Returns:
+    #     - z3.CheckSatResult
+    #         The result of the final check with all conditional constraints applied.
+    #
+    #     Notes:
+    #     - In benchmark mode, this method also attempts to record and analyze differences in solver outputs by
+    #       generating different variable assignments that maximize the Hamming distance between them.
+    #     - This method internally manages several instances of the Solver class, depending on the mode of operation
+    #       and whether additional checks are performed.
+    #
+    #     """
+    #     s = z3.Solver()
+    #     s.add(self.__global_constraints)
+    #
+    #     # temporarily add the constraint and conditional constraint to be checked.
+    #     for arg in args:  # append the checked condition
+    #         self.__assertions.append((arg, condition))
+    #
+    #     if s.check() == z3.sat:
+    #         # possible combination of condition variables
+    #         model = s.model()
+    #
+    #         solver_with_conditional_constraint = Solver()
+    #
+    #         # add corresponding conditional constraints and try to solve
+    #         for (conditional_constraint, condition) in self.__assertions:
+    #             if condition == z3.BoolVal(True) or model.eval(condition):
+    #                 self.__history.append(("add", str(conditional_constraint.sexpr())))
+    #                 solver_with_conditional_constraint.add(conditional_constraint)
+    #
+    #         # Don't really record the smt files
+    #         solver_with_conditional_constraint.start_recording()
+    #         result = solver_with_conditional_constraint.check()
+    #
+    #         self.__condition_var_assignment_model = [model]
+    #
+    #         # Only launch multiple solvers when in benchmark mode
+    #         if self.__multi_solver_mode:
+    #             self.__runs = []
+    #
+    #             # find different combinations
+    #             opt = z3.Optimize()
+    #             opt.add(self.__global_constraints)
+    #
+    #             # Only atomic Bool CVs
+    #             cv_vars = [
+    #                 v for v in self.__CVs
+    #                 if z3.is_bool(v)
+    #                    and z3.is_const(v)
+    #                    and v.decl().kind() == z3.Z3_OP_UNINTERPRETED
+    #             ]
+    #
+    #             def eval_bool(m, v):
+    #                 return z3.is_true(m.eval(v, model_completion=True))
+    #
+    #             def block_assignment(assign_dict):
+    #                 # Blocks exactly this assignment
+    #                 lits = []
+    #                 for v in cv_vars:
+    #                     val = assign_dict[v]
+    #                     lits.append(z3.Not(v) if val else v)
+    #                 return z3.Or(lits) if lits else z3.BoolVal(False)
+    #
+    #             prev_assignments = []  # list[dict[BoolRef,bool]]
+    #
+    #             count = 0
+    #             min_dist = z3.Int("min_hamdist")
+    #
+    #             while count < max_count:
+    #                 opt.push()
+    #
+    #                 # Objective: assignments as different as possible
+    #                 if prev_assignments:
+    #                     dists = []
+    #                     for a in prev_assignments:
+    #                         dists.append(z3.Sum([
+    #                             z3.If(v != z3.BoolVal(a[v]), 1, 0)
+    #                             for v in cv_vars
+    #                         ]))
+    #
+    #                     opt.add(min_dist >= 0)
+    #                     for d in dists:
+    #                         opt.add(min_dist <= d)
+    #
+    #                     h = opt.maximize(min_dist)
+    #                 else:  # First pick: no prior points, any sat assignment is fine
+    #                     h = None
+    #
+    #                 if opt.check() != z3.sat:  # exhausted all assignments
+    #                     opt.pop()
+    #                     break
+    #
+    #                 m = opt.model()
+    #
+    #                 # Materialize current assignment into Python dict
+    #                 curr = {v: eval_bool(m, v) for v in cv_vars}
+    #
+    #                 opt.pop()
+    #
+    #                 # Use 'curr' to build/run solver_with_conditional_constraint as you do now
+    #                 solver_with_conditional_constraint = Solver()
+    #                 for (conditional_constraint, condition) in self.__assertions:
+    #                     if condition == z3.BoolVal(True) or curr[condition]:
+    #                         solver_with_conditional_constraint.add(conditional_constraint)
+    #
+    #                 result = solver_with_conditional_constraint.check()
+    #
+    #                 prev_assignments.append(curr)
+    #                 opt.add(block_assignment(curr))
+    #                 count += 1
+    #
+    #             # store smt file/str
+    #             self.__canonical_smt_str = solver_with_conditional_constraint.generate_smtlib()
+    #
+    #             with open("conditional_constraints.smt2", "w") as file:  # TODO
+    #                 file.write(self.__canonical_smt_str)
+    #
+    #             # launch multiple solvers and store resutls
+    #
+    #         # pop the temporarily added conditional constraints
+    #         for _ in args:
+    #             self.__assertions.pop()
+    #
+    #         self.__history.append(("result", str(solver_with_conditional_constraint.check(*args))))
+    #         return result
+    #     else:
+    #         raise RuntimeError("Impossible to find any way of building constraints"
+    #                            "The conditional constraints are not satisfiable under global constraints ")
     
     def push(self):
         self.__history.append(("push", None))
@@ -435,7 +465,7 @@ class Solver(z3.Solver):
     
     def _generate_outer_replay_smtlib(self):
         output = StringIO()
-        output.write(f"(set-logic QF_LIA)\n")
+        output.write(f"(set-logic ALL)\n") # QF_LIA -> ALL because the sexpr z3 generate is (_ pbeq ...) instead of
         for name in sorted(self.__decls):
             output.write(self.__decls[name] + "\n")
         for operation in self.__history:

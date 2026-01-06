@@ -7,9 +7,8 @@ import z3
 from jz3.src.z3_wrapper import Solver
 
 
-GOLDENS_DIR = Path(__file__).parent / "goldens"
-# UPDATE_GOLDENS = os.getenv("UPDATE_GOLDENS", "").lower() in ("1", "true", "yes", "y")
-UPDATE_GOLDENS = True
+GOLDENS_DIR = Path(__file__).parent / "goldens/single_cv_smt2"
+UPDATE_GOLDENS = os.getenv("UPDATE_GOLDENS", "").lower() in ("1", "true", "yes", "y")
 
 def _read_text(p: Path) -> str:
     return p.read_text(encoding="utf-8")
@@ -29,7 +28,7 @@ def _assert_matches_golden(name: str, actual: str) -> None:
     """
     golden_path = GOLDENS_DIR / name
 
-    if UPDATE_GOLDENS:
+    if UPDATE_GOLDENS and not os.path.exists(golden_path):
         _write_text(golden_path, actual)
         return
 
