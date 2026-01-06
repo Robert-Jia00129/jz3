@@ -3,10 +3,8 @@
 (assert (>= x 0))
 (check-sat)
 ; Result: sat
-(push 1)
-(assert (< x 0))
-(check-sat)
+(check-sat-assuming ((< x 0)))
 ; Result: unsat
-(pop 1)
+(assert (= x 0))
 (check-sat)
 ; Result: sat

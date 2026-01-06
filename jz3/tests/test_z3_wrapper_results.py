@@ -2,265 +2,167 @@ import os
 from pathlib import Path
 
 import pytest
+import z3
+
 from jz3.src.z3_wrapper import Solver
-import jz3 as z3
 
 
-def optimizer_test():
-    # Create variables
-    x = z3.Int('x')
-    y = z3.Int('y')
-    z = z3.Int('z')
-    
-    # Create conditions
-    cond1 = z3.Bool('cond1')
-    cond2 = z3.Bool('cond2')
-    cond3 = z3.Bool('cond3')
-    
-    # Create constraints
-    constraints = [
-        z3.Implies(cond1, x > 0),
-        z3.Implies(cond2, y > 0),
-        z3.Implies(cond3, z > 0)
-    ]
-    
-    # Create optimizer
-    opt = z3.Optimize()
-    
-    # Add constraints to the optimizer
-    for constraint in constraints:
-        opt.add(constraint)
-    
-    # Add conditions to the optimizer
-    opt.add(z3.Or(cond1, cond2, cond3))
-    
-    # First combination (maximize)
-    opt.push()
-    opt.maximize(z3.Sum([z3.If(cond, 1, 0) for cond in [cond1, cond2, cond3]]))
-    opt.check()
-    combination1 = opt.model()
-    opt.pop()
-    
-    # Second combination (minimize)
-    opt.push()
-    opt.minimize(z3.Sum([z3.If(cond, 1, 0) for cond in [cond1, cond2, cond3]]))
-    combination2 = opt.model()
-    opt.pop()
-    
-    # Print the combinations
-    print("Combination 1:")
-    print(combination1)
-    print("Combination 2:")
-    print(combination2)
+GOLDENS_DIR = Path(__file__).parent / "goldens"
+UPDATE_GOLDENS = os.getenv("UPDATE_GOLDENS", "").lower() in ("1", "true", "yes", "y")
 
 
-def test_add_conditional_constraint_from_demo():
+def _read_text(p: Path) -> str:
+    return p.read_text(encoding="utf-8")
+
+
+def _write_text(p: Path, s: str) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(s, encoding="utf-8")
+
+
+def _assert_matches_golden(name: str, actual: str) -> None:
     """
-    Converts solver_demo() into a test focusing on:
-      - add_conditional_constraint stores assertions + CVs correctly
-      - meta enumeration under global constraints yields 2 assignments
-      - result is SAT
+    Exact golden-file matching.
+
+    - If UPDATE_GOLDENS=1, overwrite the golden.
+    - Otherwise, the golden must already exist and must match exactly.
     """
-    solver = Solver(benchmark_mode=True)
-    
+    golden_path = GOLDENS_DIR / name
+
+    if UPDATE_GOLDENS:
+        _write_text(golden_path, actual)
+        return
+
+    assert golden_path.exists(), (
+        f"Missing golden file: {golden_path}\n"
+        f"Run with UPDATE_GOLDENS=1 to create/update goldens."
+    )
+    expected = _read_text(golden_path)
+    assert actual == expected, f"SMT2 mismatch vs golden: {golden_path}"
+
+
+# -----------------------------------------------------------------------------
+# 1) Plain (check-sat) replay SMT2: deterministic SAT
+# -----------------------------------------------------------------------------
+def test_smt2_check_sat_sat_golden():
+    solver = Solver()
     x = z3.Int("x")
-    encoding1 = z3.Bool("encoding1")
-    encoding2 = z3.Bool("encoding2")
-    
-    c1 = z3.And(8 <= x, x <= 17, x != 12)
-    c2 = z3.Or(z3.And(8 <= x, x < 12), z3.And(12 < x, x <= 17))
-    
-    solver.add_conditional_constraint(c1, condition=encoding1)
-    solver.add_conditional_constraint(c2, condition=encoding2)
-    
-    # Internal state checks (name-mangled private fields)
-    assertions = solver._Solver__assertions  # [(And(x >= 8, x <= 17, x != 12), encoding1), (Or(And(x >= 8, x < 12), And(x > 12, x <= 17)), encoding2)]
-    cvs = solver._Solver__CVs  # {encoding1, encoding2}
-    
-    assert (c1, encoding1) in assertions
-    assert (c2, encoding2) in assertions
-    assert encoding1 in cvs
-    assert encoding2 in cvs
-    assert cvs == {encoding1, encoding2}
-    
-    # Same global constraints as demo: Or + Distinct => exactly one True
-    solver.add_global_constraints(z3.Or(encoding1, encoding2))
-    solver.add_global_constraints(z3.Distinct(encoding1, encoding2))
-    
-    solver.start_recording()
-    res = solver.check_conditional_constraints()
-    
-    assert res == z3.sat
-    
-    assignments = solver.get_condition_var_assignment_model()  # [{'encoding1': True, 'encoding2': False}, {'encoding1': False, 'encoding2': True}]
-    # Exactly 2 distinct assignments for two bool CVs with XOR-like constraint
-    assert isinstance(assignments, list)
-    assert len(assignments) == 2
-    
-    # Ensure the assignments reflect "exactly one enabled"
-    # Stored as dict[str,bool] in your implementation
-    for a in assignments:
-        assert set(a.keys()) == {"encoding1", "encoding2"}
-        assert (a["encoding1"] + a["encoding2"]) == 1  # True==1, False==0
+
+    solver.add(x == 1)
+    assert solver.check() == z3.sat
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("check_sat_sat.smt2", smt)
 
 
-def test_add_conditional_constraint_with_args_forced_cv_sat_and_unsat():
-    """
-    Verifies the "force this condition to True for this check" behavior:
-      meta.add(condition) when condition is not True.
-    And verifies SAT/UNSAT outcomes when adding extra guarded args.
-    """
-    solver = Solver(benchmark_mode=False)
-    
+# -----------------------------------------------------------------------------
+# 2) Plain (check-sat) replay SMT2: deterministic UNSAT
+# -----------------------------------------------------------------------------
+def test_smt2_check_sat_unsat_golden():
+    solver = Solver()
     x = z3.Int("x")
-    cv = z3.Bool("cv")
-    
-    # Base conditional constraint guarded by cv
-    solver.add_conditional_constraint(x == 1, condition=cv)
-    
-    # Make the meta-space allow cv=True; simplest is to just allow it with Or(cv, Not(cv)).
-    solver.add_global_constraints(z3.Or(cv, z3.Not(cv)))
-    
-    # UNSAT case: force cv=True, add a conflicting extra constraint
-    res_unsat = solver.check_conditional_constraints(x == 2, condition=cv)
-    assert res_unsat == z3.unsat
-    
-    # SAT case: force cv=True, add a consistent extra constraint
-    res_sat = solver.check_conditional_constraints(x == 1, condition=cv)
-    assert res_sat == z3.sat
-    
-    # SAT case: simple check without forcing cv
-    res_sat = solver.check_conditional_constraints(x == 2)
-    assert res_sat == z3.sat
+
+    solver.add(x == 1)
+    solver.add(x == 2)
+    assert solver.check() == z3.unsat
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("check_sat_unsat.smt2", smt)
 
 
-def test_add_conditional_constraint_demo_force_sat_and_unsat():
-    """
-    Demo-style test that mirrors the intended real use case:
+# -----------------------------------------------------------------------------
+# 3) (check-sat-assuming) replay SMT2: deterministic SAT
+#    Note: assumptions MUST NOT appear as (assert ...) in the SMT2
+# -----------------------------------------------------------------------------
+def test_smt2_check_sat_assuming_sat_golden():
+    solver = Solver()
+    x = z3.Int("x")
 
-    - We register *three alternative encodings* of the same requirement:
-        "time is in [8..17] excluding 12"
-      guarded by *encoding condition variables* (CVs).
+    solver.add(x >= 0)
 
-    - Then we run "queries" under a *forced encoding*:
-        * For range/split encodings, the query is `x == k`
-        * For one-hot encoding, the query is selecting a boolean indicator `hour_is_k`
+    # SAT because x can be 4
+    assert solver.check(x > 3) == z3.sat
 
-    - We verify:
-        1) Under each forced encoding, 11 is SAT
-        2) Under each forced encoding, 12 is UNSAT
-        3) The meta-model indeed sets exactly the forced encoding CV to True
-    """
-    solver = Solver(benchmark_mode=False)
-    
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("check_sat_assuming_sat.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# 4) (check-sat-assuming) replay SMT2: deterministic UNSAT
+# -----------------------------------------------------------------------------
+def test_smt2_check_sat_assuming_unsat_golden():
+    solver = Solver()
+    x = z3.Int("x")
+
+    solver.add(x >= 0)
+
+    # UNSAT because x >= 0 and (assume x < 0)
+    assert solver.check(x < 0) == z3.unsat
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("check_sat_assuming_unsat.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# 5) Mixed check order: check-sat then check-sat-assuming then check-sat
+#    Deterministic outcomes and ordering in SMT2 history.
+# -----------------------------------------------------------------------------
+def test_smt2_mixed_check_and_check_assuming_golden():
+    solver = Solver()
+    x = z3.Int("x")
+
+    solver.add(x >= 0)
+    assert solver.check() == z3.sat          # SAT
+
+    assert solver.check(x < 0) == z3.unsat   # UNSAT (assumption)
+
+    solver.add(x == 0)
+    assert solver.check() == z3.sat          # SAT
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("mixed_check_and_check_assuming.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# 6) Push/pop replay SMT2: deterministic SAT -> UNSAT -> SAT
+# -----------------------------------------------------------------------------
+def test_smt2_push_pop_golden():
+    solver = Solver()
+    x = z3.Int("x")
+
+    solver.add(x >= 0)
+    assert solver.check() == z3.sat
+
+    solver.push()
+    solver.add(x < 0)
+    assert solver.check() == z3.unsat
+
+    solver.pop()
+    assert solver.check() == z3.sat
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("push_pop_recording.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# Helpers to build the demo encodings you provided (bool-only onehot variant)
+# -----------------------------------------------------------------------------
+def _build_demo_solver_bool_only_onehot(*, benchmark_mode: bool = True):
+    solver = Solver(benchmark_mode=benchmark_mode)
+
     time = z3.Int("time")
-    
-    # Encoding selector CVs (meta variables)
-    arith_range = z3.Bool("arith_range")  # encoding 1: single range with != 12
-    arith_split = z3.Bool("arith_split")  # encoding 2: split range around 12
-    bool_onehot = z3.Bool("bool_onehot")  # encoding 3: one-hot discrete hour variables
-    
-    # Encoding 1: range [8, 17] excluding 12
-    range_encoding = z3.And(8 <= time, time <= 17, time != 12)
-    solver.add_conditional_constraint(range_encoding, condition=arith_range)
-    
-    # Encoding 2: split range excluding 12
-    split_encoding = z3.Or(
-        z3.And(8 <= time, time < 12),
-        z3.And(12 < time, time <= 17),
-    )
-    solver.add_conditional_constraint(split_encoding, condition=arith_split)
-    
-    # Encoding 3: one-hot discrete hours 8..17, excluding 12
-    # - hour_is_i => time == i
-    # - exactly one hour_is_i is true
-    # - hour_is_12 is forbidden
-    hours = list(range(8, 18))
-    hour_is = {h: z3.Bool(f"hour_is_{h}") for h in hours}
-    
-    # Link booleans to the integer time (only enforced when bool_onehot is enabled)
-    for h in hours:
-        solver.add_conditional_constraint(z3.Implies(hour_is[h], time == h), condition=bool_onehot)
-    
-    # Exactly one hour selected
-    solver.add_conditional_constraint(
-        z3.PbEq([(hour_is[h], 1) for h in hours], 1),
-        condition=bool_onehot,
-    )
-    
-    # Exclude 12 directly (No longer links to arithmetic `time` variable)
-    solver.add_conditional_constraint(z3.Not(hour_is[12]), condition=bool_onehot)
-    
-    # Meta constraint: exactly one encoding is enabled
-    solver.add_global_constraints(
-        z3.PbEq([(arith_range, 1), (arith_split, 1), (bool_onehot, 1)], 1)
-    )
-    
-    def assert_forced_encoding_is_selected(forced_cv: z3.BoolRef) -> None:
-        """
-        check_conditional_constraints() stores a single CV assignment model in non-benchmark mode.
-        When we pass condition=<forced_cv>, the meta-solver must set that CV to True.
-        """
-        models = solver.get_condition_var_assignment_model()
-        assert isinstance(models, list) and len(models) == 1
-        
-        assignment = models[0]  # dict[str,bool]
-        assert set(assignment.keys()) == {"arith_range", "arith_split", "bool_onehot"}
-        
-        assert assignment[str(forced_cv)] is True
-        for other_name in {"arith_range", "arith_split", "bool_onehot"} - {str(forced_cv)}:
-            assert assignment[other_name] is False
-    
-    # ---------------------------------------------------------------------
-    # SAT queries: ask for "11" under each encoding
-    # ---------------------------------------------------------------------
-    assert solver.check_conditional_constraints(time == 11, condition=arith_range) == z3.sat
-    assert_forced_encoding_is_selected(arith_range)
-    
-    assert solver.check_conditional_constraints(time == 11, condition=arith_split) == z3.sat
-    assert_forced_encoding_is_selected(arith_split)
-    
-    # One-hot encoding: query is selecting the corresponding boolean indicator
-    assert solver.check_conditional_constraints(hour_is[11], condition=bool_onehot) == z3.sat
-    assert_forced_encoding_is_selected(bool_onehot)
-    
-    # ---------------------------------------------------------------------
-    # UNSAT queries: ask for "12" under each encoding
-    # ---------------------------------------------------------------------
-    assert solver.check_conditional_constraints(time == 12, condition=arith_range) == z3.unsat
-    assert_forced_encoding_is_selected(arith_range)
-    
-    assert solver.check_conditional_constraints(time == 12, condition=arith_split) == z3.unsat
-    assert_forced_encoding_is_selected(arith_split)
-    
-    assert solver.check_conditional_constraints(hour_is[12], condition=bool_onehot) == z3.unsat
-    assert_forced_encoding_is_selected(bool_onehot)
 
+    arith_range = z3.Bool("arith_range")
+    arith_split = z3.Bool("arith_split")
+    bool_onehot = z3.Bool("bool_onehot")
 
-def test_add_conditional_constraint_demo_bool_only_onehot_force_sat_and_unsat():
-    """
-    Same as `test_add_conditional_constraint_demo_force_sat_and_unsat` but bool vars no longer implies the arithmetic 'time' var. Bool encoding and arith encoding work completely separately.
-    """
-    solver = Solver(benchmark_mode=False)
-    
-    time = z3.Int("time")
-    
-    # Encoding selector CVs (meta variables) — using your preferred names
-    arith_range = z3.Bool("arith_range")  # encoding 1: single range with != 12
-    arith_split = z3.Bool("arith_split")  # encoding 2: split range around 12
-    bool_onehot = z3.Bool("bool_onehot")  # encoding 3: one-hot discrete hour variables
-    
-    # ---------------------------------------------------------------------
     # Encoding 1: arithmetic range [8, 17] excluding 12
-    # ---------------------------------------------------------------------
     solver.add_conditional_constraint(
         z3.And(8 <= time, time <= 17, time != 12),
         condition=arith_range,
     )
-    
-    # ---------------------------------------------------------------------
+
     # Encoding 2: arithmetic split range excluding 12
-    # ---------------------------------------------------------------------
     solver.add_conditional_constraint(
         z3.Or(
             z3.And(8 <= time, time < 12),
@@ -268,63 +170,61 @@ def test_add_conditional_constraint_demo_bool_only_onehot_force_sat_and_unsat():
         ),
         condition=arith_split,
     )
-    
-    # ---------------------------------------------------------------------
-    # Encoding 3: *bool-only* one-hot hours 8..17, excluding 12
-    # - exactly one hour_is_h is true
-    # - directly assert hour_is_12 is false (no arithmetic 'time' variable involved)
-    # ---------------------------------------------------------------------
+
+    # Encoding 3: bool-only one-hot for hour_is_8..17, excluding 12
     hours = list(range(8, 18))
     hour_is = {h: z3.Bool(f"hour_is_{h}") for h in hours}
-    
+
     solver.add_conditional_constraint(
         z3.PbEq([(hour_is[h], 1) for h in hours], 1),
         condition=bool_onehot,
     )
     solver.add_conditional_constraint(z3.Not(hour_is[12]), condition=bool_onehot)
-    
-    # ---------------------------------------------------------------------
-    # Meta constraint: exactly one encoding CV is enabled
-    # ---------------------------------------------------------------------
+
+    # Meta constraint: exactly one encoding enabled
     solver.add_global_constraints(
         z3.PbEq([(arith_range, 1), (arith_split, 1), (bool_onehot, 1)], 1)
     )
-    
-    def assert_forced_encoding_is_selected(forced_cv: z3.BoolRef) -> None:
-        models = solver.get_condition_var_assignment_model()
-        assert isinstance(models, list) and len(models) == 1
-        
-        assignment = models[0]  # dict[str,bool]
-        assert set(assignment.keys()) == {"arith_range", "arith_split", "bool_onehot"}
-        
-        assert assignment[str(forced_cv)] is True
-        for other_name in {"arith_range", "arith_split", "bool_onehot"} - {str(forced_cv)}:
-            assert assignment[other_name] is False
-    
-    # ---------------------------------------------------------------------
-    # SAT queries
-    # ---------------------------------------------------------------------
-    
+
+    return solver, time, hour_is, arith_range, arith_split, bool_onehot
+
+
+# -----------------------------------------------------------------------------
+# 7) Canonical SMT2 from check_conditional_constraints: arithmetic encoding
+#    IMPORTANT: inner solver uses check(*args) => (check-sat-assuming ...) in SMT2.
+# -----------------------------------------------------------------------------
+def test_smt2_canonical_from_check_conditional_constraints_arith_range_sat_golden():
+    solver, time, hour_is, arith_range, arith_split, bool_onehot = _build_demo_solver_bool_only_onehot()
+
     assert solver.check_conditional_constraints(time == 11, condition=arith_range) == z3.sat
-    assert_forced_encoding_is_selected(arith_range)
-    
-    assert solver.check_conditional_constraints(time == 11, condition=arith_split) == z3.sat
-    assert_forced_encoding_is_selected(arith_split)
-    
-    # Bool-only encoding: query by selecting the boolean for the chosen hour
-    assert solver.check_conditional_constraints(hour_is[11], condition=bool_onehot) == z3.sat
-    assert_forced_encoding_is_selected(bool_onehot)
-    
-    # ---------------------------------------------------------------------
-    # UNSAT queries
-    # ---------------------------------------------------------------------
-    
-    assert solver.check_conditional_constraints(time == 12, condition=arith_range) == z3.unsat
-    assert_forced_encoding_is_selected(arith_range)
-    
-    assert solver.check_conditional_constraints(time == 12, condition=arith_split) == z3.unsat
-    assert_forced_encoding_is_selected(arith_split)
-    
-    # Bool-only encoding: hour_is_12 contradicts Not(hour_is_12)
+
+    # The SMT2 returned should be the canonical *inner* SMT2 for this call.
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("canonical_arith_range_time_11_sat.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# 8) Canonical SMT2 from check_conditional_constraints: bool-only onehot UNSAT
+#    Query hour_is_12 contradicts Not(hour_is_12) under that encoding.
+# -----------------------------------------------------------------------------
+def test_smt2_canonical_from_check_conditional_constraints_bool_onehot_unsat_golden():
+    solver, time, hour_is, arith_range, arith_split, bool_onehot = _build_demo_solver_bool_only_onehot()
+
     assert solver.check_conditional_constraints(hour_is[12], condition=bool_onehot) == z3.unsat
-    assert_forced_encoding_is_selected(bool_onehot)
+
+    smt = solver.generate_smtlib()
+    _assert_matches_golden("canonical_bool_onehot_hour_is_12_unsat.smt2", smt)
+
+
+# -----------------------------------------------------------------------------
+# 9) Non-golden semantic test: CV must be True or atomic Bool (no composed expressions)
+# -----------------------------------------------------------------------------
+def test_add_conditional_constraint_rejects_composed_cv():
+    solver = Solver()
+    x = z3.Int("x")
+
+    a = z3.Bool("a")
+    b = z3.Bool("b")
+
+    with pytest.raises(TypeError):
+        solver.add_conditional_constraint(x == 1, condition=z3.And(a, b))

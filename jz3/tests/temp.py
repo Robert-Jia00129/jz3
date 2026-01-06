@@ -9,5 +9,5 @@ s.add(x > 0)
 print(s.to_smt2())
 # def func(*args, **kwargs):
 #     print(args)
-print(s.check(x == 2, x <= 1))
+print(s.check(y == 2))
 print(s.to_smt2())
