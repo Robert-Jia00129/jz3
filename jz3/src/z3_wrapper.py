@@ -18,61 +18,85 @@ class CVRun:
     solver_results: Optional[Dict] = None  # solver -> (total_time, did_timeout, ans) from run_solvers
 
 
-# child class to write push and pop to SMT2 file
-class Solver(z3.Solver):
-    def __init__(self, benchmark_mode=False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__history = []  # list of (operation, args). Records all assertions, push, pop, checks to generate smt2 str
-        self.__assertions = []
-        self.__global_constraints = z3.BoolVal(True)
-        self.__canonical_smt_str: str = ""  # smt2 of the first cv comb we tried
-        self.__condition_var_assignment_model = None
-        self.__multi_solver_mode = benchmark_mode
-        self.__CVs = set()  # condition variables
-        self.__result = None
-        self.__decls = {}
-        self.__record_initialized = False
-        self.__runs: List[CVRun] = []
-    
-    def __getattribute__(self, name):
-        _allowed_methods = ['add', 'add_global_constraints', 'add_conditional_constraint',
-                            'check_conditional_constraints', 'check', 'push', 'pop',
-                            'generate_smtlib', '_allowed_methods',
-                            'ctx', 'solver', 'set', 'assert_exprs', 'to_smt2', 'assertions',
-                            'get_condition_var_assignment_model',
-                            'get_var_assignments_and_solvers_performance', 'get_runs']
-        if name.startswith('_') or name in _allowed_methods:  # intentionally accessing a private variable
-            return object.__getattribute__(self, name)
-        else:
-            warnings.warn(f"Method '{name}' is called.\n "
-                          f"But this method might not be recorded to smt2 file and might incur potential logic errors"
-                          f"Please use only the methods defined in Solver2SMT.\n"
-                          f"If this is intentional, modified the _allowed_methods above")
-            return super().__getattribute__(name)
-    
-    def start_recording(self):
-        # deprecation warning
-        warnings.warn("start_recording is deprecated; recording starts automatically upon Solver creation.",
-                      DeprecationWarning, stacklevel=2)
-        return
-    
-    def _collect_decls(self, e: z3.ExprRef):
-        """
-        Collect all uninterpreted symbols used in e (consts + uninterpreted functions),
-        and store their SMT-LIB declare-fun lines in self.__decls.
+@dataclass(frozen=True)
+class CVRun:
+    assignment: dict[str, bool]
+    smt2: str
+    sat: z3.CheckSatResult
+    solver_results: Optional[Dict] = None
 
-        This avoids relying on z3.z3util.get_decls (not available in many z3-solver builds).
-        """
-        
+
+class Solver(z3.Solver):
+    """
+    Persistent incremental solver with:
+      - Conditional constraints encoded as (=> CV constraint) asserted ONCE.
+      - CV assignment selected via check-sat-assuming (assumptions).
+      - Recording for two SMT2 exports:
+          * snapshot: only the final user check (if current)
+          * transcript: full incremental user session
+      - Internal checks for CV enumeration are NOT recorded (bypass check override).
+    """
+
+    def __init__(self, benchmark_mode: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Records all state-mutating ops AND user checks, in order.
+        # Each entry is (op, payload):
+        #   - ("add", "<sexpr>")
+        #   - ("push", None)
+        #   - ("pop", None)
+        #   - ("check", None)
+        #   - ("check_assuming", ["<sexpr>", ...])
+        #   - ("result", "<sat|unsat|unknown>")
+        self.__history: List[Tuple[str, Any]] = []
+
+        # Conditional constraints registry (for CV enumeration reporting / runs)
+        self.__assertions: List[Tuple[z3.BoolRef, z3.BoolRef]] = []  # (constraint, cv)
+
+        # Global constraints over CVs only (meta space)
+        self.__global_constraints = z3.BoolVal(True)
+        self.__meta_solver = z3.Solver()
+
+        self.__canonical_smt_str: str = ""  # smt2 of the first CV assignment run
+        self.__multi_solver_mode = benchmark_mode
+        self.__CVs = set()  # atomic Bool CVs
+        self.__result = None
+
+        # For SMT2 emission
+        self.__decls: Dict[str, str] = {}
+
+        # For check_conditional_constraints outputs
+        self.__runs: List[CVRun] = []
+        self.__condition_var_assignment_model: List[dict[str, bool]] = []
+
+    def __getattribute__(self, name):
+        _allowed_methods = [
+            'add', 'add_global_constraints', 'add_conditional_constraint',
+            'check_conditional_constraints', 'check', 'push', 'pop',
+            'generate_smtlib', 'generate_smt2_snapshot', 'generate_smt2_transcript',
+            'get_condition_var_assignment_model',
+            'get_var_assignments_and_solvers_performance', 'get_runs',
+            'ctx', 'solver', 'set', 'assert_exprs', 'to_smt2', 'assertions',
+            '_allowed_methods',
+        ]
+        if name.startswith('_') or name in _allowed_methods:
+            return object.__getattribute__(self, name)
+        warnings.warn(
+            f"Method '{name}' is called.\n"
+            f"This method might not be recorded to SMT2 and might incur potential logic errors.\n"
+            f"Please use only methods defined in Solver.\n"
+            f"If intentional, modify _allowed_methods."
+        )
+        return super().__getattribute__(name)
+
+    # Collect declarations for the SMT2 header
+    def _collect_decls(self, e: z3.ExprRef):
         def add_decl(d: z3.FuncDeclRef):
             if d.kind() != z3.Z3_OP_UNINTERPRETED:
                 return
-            
             name = d.name()
             if name in self.__decls:
                 return
-            
-            # Const (arity 0)
             if d.arity() == 0:
                 rng = d.range().sexpr()
                 line = f"(declare-fun {name} () {rng})"
@@ -80,414 +104,397 @@ class Solver(z3.Solver):
                 dom = " ".join(d.domain(i).sexpr() for i in range(d.arity()))
                 rng = d.range().sexpr()
                 line = f"(declare-fun {name} ({dom}) {rng})"
-            
             self.__decls[name] = line
-        
+
         seen = set()
-        
+
         def walk(t: z3.AstRef):
-            # Avoid revisiting nodes
             tid = t.get_id()
             if tid in seen:
                 return
             seen.add(tid)
-            
-            # For apps: collect decl and walk children
             if z3.is_app(t):
                 add_decl(t.decl())
                 for ch in t.children():
                     walk(ch)
                 return
-            
-            # Quantifiers (unlikely in QF_* but safe): walk body
             if z3.is_quantifier(t):
                 walk(t.body())
                 return
-            
-            # Other AST nodes: nothing to do
-        
+
         walk(e)
-    
+
+    # ----------------------------
+    # Global CV constraints (meta only)
+    # ----------------------------
     def add_global_constraints(self, *constraints):
         """
-        Sets global constraints that encodes rules/constraints for the condition variables.
-        :param constraints: A list of Z3 constraints that define global conditions.
+        Constraints over CVs (meta-space). These are NOT asserted into the main solver.
+        They are used only for enumerating valid CV assignments in check_conditional_constraints.
         """
+        if not constraints:
+            return
         self.__global_constraints = z3.And(self.__global_constraints, *constraints)
-    
+        for c in constraints:
+            self._collect_decls(c)
+        self.__meta_solver.add(*constraints)
+
+        if self.__meta_solver.check() != z3.sat: # No valid CV assignment
+            raise RuntimeError("Global CV constraints are UNSAT; no CV assignment is possible.")
+
+    # Base operations (recorded)
     def add(self, *args):
-        # self._conditional_constraints.append((args,condition))
         for arg in args:
             self._collect_decls(arg)
-            self.__history.append(("add", str(arg.sexpr())))
+            self.__history.append(("add", arg.sexpr()))
         super().add(*args)
-    
+
+    def push(self):
+        self.__history.append(("push", None))
+        super().push()
+
+    def pop(self, *args, **kwargs):
+        self.__history.append(("pop", None))
+        super().pop(*args, **kwargs)
+
+    # Conditional constraints: assert ONCE as guarded implications
     def add_conditional_constraint(self, *args, condition: z3.BoolRef = z3.BoolVal(True)):
         """
-        Adds conditional constraints that are only active when the specified condition variable is true.
-        The condition variable MUST be an atomic Bool variable (not a composed expression).
+        Adds constraints that are active when `condition` is true.
+        Encodes each arg (conditional constraint) as:
+          - assert cc                                if condition is True
+          - assert (condition=> condition cc)        otherwise
         """
         if condition is None:
             condition = z3.BoolVal(True)
-        
-        # Validate CV: allow True; otherwise must be an atomic Bool const
+
+        # Validate CV: allow True; otherwise must be atomic Bool const (uninterpreted)
         if not (z3.is_true(condition) or (
-                z3.is_bool(condition)
-                and z3.is_const(condition)
-                and condition.decl().kind() == z3.Z3_OP_UNINTERPRETED
+            z3.is_bool(condition)
+            and z3.is_const(condition)
+            and condition.decl().kind() == z3.Z3_OP_UNINTERPRETED
         )):
             raise TypeError(
-                "condition must be z3.BoolVal(True) or an atomic Bool variable (e.g., z3.Bool('encoding1')). "
-                "Composed expressions like z3.And(a, b) are not allowed."
+                "condition must be z3.BoolVal(True) or an atomic Bool variable "
+                "(e.g., z3.Bool('encoding1')). Composed expressions are not allowed."
             )
-        
-        for conditional_constraint in args:
-            self.__assertions.append((conditional_constraint, condition))
-            if not z3.is_true(condition):
-                self.__CVs.add(condition)
-        
-        s = z3.Solver()
-        s.add(self.__global_constraints)
-        if s.check() != z3.sat:
+
+        # Track CVs (meta-space)
+        if not z3.is_true(condition):
+            self.__CVs.add(condition)
+
+        # Assert into the MAIN solver once, guarded by the CV.
+        for cc in args:
+            self.__assertions.append((cc, condition))
+            if z3.is_true(condition):
+                self.add(cc)
+            else:
+                self.add(z3.Implies(condition, cc))
+
+        # Sanity: global constraints still satisfiable (meta)
+        if self.__meta_solver.check() != z3.sat:
             raise RuntimeError(
-                "There is no way to satisfy all condition variables provided under global constraint"
+                "There is no way to satisfy CVs under global constraints after adding this CV."
             )
-    
+
+    # ----------------------------
+    # User-facing check (recorded)
+    # ----------------------------
+    def check(self, *args):
+        if args:
+            for a in args:
+                if not z3.is_bool(a):
+                    raise TypeError("Assumptions must be boolean expressions")
+                self._collect_decls(a)
+            self.__history.append(("check_assuming", [a.sexpr() for a in args]))
+            res = super().check(*args)
+            self.__history.append(("result", str(res)))
+            return res
+
+        self.__history.append(("check", None))
+        res = super().check()
+        self.__history.append(("result", str(res)))
+        return res
+
+    # Internal check that MUST NOT be recorded (bypass override)
+    def _check_no_record(self, *assumptions: z3.BoolRef) -> z3.CheckSatResult:
+        for a in assumptions:
+            self._collect_decls(a)
+        return z3.Solver.check(self, *assumptions)
+
+    # ----------------------------
+    # CV enumeration utilities
+    # ----------------------------
     def _eval_bool(self, m: z3.ModelRef, b: z3.BoolRef) -> bool:
-        # b is atomic Bool (per your invariant) OR BoolVal(True)
         return z3.is_true(m.eval(b, model_completion=True))
-    
+
     def _block_model(self, m: z3.ModelRef, cvs: list[z3.BoolRef]) -> z3.BoolRef:
-        """
-        Block exactly this CV assignment.
-        For each CV v:
-          - if m[v] is True, add ¬v
-          - else add v
-        Then OR them so at least one CV differs next time.
-        """
         if not cvs:
-            # No CVs to vary => only one assignment exists; blocking makes UNSAT to avoid infinite loop.
             return z3.BoolVal(False)
-        
         lits = []
         for v in cvs:
             val = self._eval_bool(m, v)
             lits.append(z3.Not(v) if val else v)
         return z3.Or(lits)
-    
+
+    # ----------------------------
+    # Conditional constraint checking (NOT recorded in transcript)
+    # ----------------------------
     def check_conditional_constraints(self, *args, condition=z3.BoolVal(True), max_count=3):
         """
-        Meta-solver approach: enumerate CV assignments satisfying __global_constraints (no duplicates),
-        materialize enabled conditional constraints, and solve.
+        Enumerate CV assignments satisfying global constraints, then check the MAIN solver
+        under assumptions (CV literals + user assumptions).
 
-        In non-benchmark mode: runs the first satisfiable CV assignment only.
-        In benchmark mode: runs up to max_count distinct CV assignments.
+        Important: The checks performed inside this method are NOT appended to __history,
+        so transcripts do not include CV-assignment checks.
         """
-        # reset all our CV -> solver result records
         self.__runs = []
         self.__canonical_smt_str = ""
         self.__result = None
-        
-        meta = z3.Solver()  # meta-solver over CVs only
-        meta.add(self.__global_constraints)
-        # Force CV==True, just for this check.
-        if not z3.is_true(condition):
-            meta.add(condition)
-        
-        cvs = list(self.__CVs)  # guaranteed atomic Bool CVs (no True)
-        
-        # Reset outputs for this call
         self.__condition_var_assignment_model = []
-        
-        count_limit = max_count if self.__multi_solver_mode else 1
-        count = 0
-        first_result = None
-        
-        cvs = sorted(cvs, key=lambda v: v.decl().name())  # consistent order
-        
-        while count < count_limit and meta.check() == z3.sat:
-            m = meta.model()
-            
-            # Actual solver. Checks the enabled CV.
-            inner = Solver()
-            
-            for (cc, cv) in self.__assertions:
-                enabled = z3.is_true(cv) or self._eval_bool(m, cv)
-                if enabled:
-                    inner.add(cc)
-            
-            res = inner.check(*args)
-            
+
+        for a in args:
+            if not z3.is_bool(a):
+                raise TypeError("Assumptions passed to check_conditional_constraints must be Bool expressions")
+
+        meta = self.__meta_solver
+        meta.push()
+        try:
+            if not z3.is_true(condition):
+                meta.add(condition)
+
+            cvs = sorted(list(self.__CVs), key=lambda v: v.decl().name())
+            count_limit = max_count if self.__multi_solver_mode else 1
+            count = 0
+            first_result = None
+
+            while count < count_limit and meta.check() == z3.sat:
+                m = meta.model()
+
+                cv_assumptions = [v if self._eval_bool(m, v) else z3.Not(v) for v in cvs]
+                # Ensure the requested condition is enabled for the actual check as well.
+                if not z3.is_true(condition):
+                    cv_assumptions = [condition] + cv_assumptions
+
+                assumptions = cv_assumptions + list(args)
+
+                # Do NOT record this check in history.
+                res = self._check_no_record(*assumptions)
+                if first_result is None:
+                    first_result = res
+
+                assignment = {v.decl().name(): self._eval_bool(m, v) for v in cvs}
+                if not z3.is_true(condition):
+                    # condition forced True; include it in the assignment dict if it is a CV
+                    if z3.is_bool(condition) and z3.is_const(condition):
+                        assignment[condition.decl().name()] = True
+
+                self.__condition_var_assignment_model.append(assignment)
+
+                smt2_str = self._build_snapshot_for_assumptions(assumptions=assumptions, result=res)
+
+                solver_results = None
+                if self.__multi_solver_mode:
+                    solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
+                    if self.__result is None:
+                        self.__result = res
+                    elif res != self.__result:
+                        warnings.warn(
+                            "Results differ across CV assignments; conditional constraints may be inequivalent.\n"
+                            "Suppress with InequivalentConditionalConstraints if intentional.\n",
+                            InequivalentConditionalConstraints
+                        )
+
+                self.__runs.append(CVRun(
+                    assignment=assignment,
+                    smt2=smt2_str,
+                    sat=res,
+                    solver_results=solver_results if self.__multi_solver_mode else None,
+                ))
+
+                if not self.__canonical_smt_str:
+                    self.__canonical_smt_str = smt2_str
+
+                meta.add(self._block_model(m, cvs))
+                count += 1
+
             if count == 0:
-                first_result = res
-            
-            # Store assignment (as a python dict for stability)
-            assignment = {v.decl().name(): self._eval_bool(m, v) for v in cvs}
-            self.__condition_var_assignment_model.append(assignment)
-            
-            smt2_str = inner.generate_smtlib()
-            solver_results = None
-            if self.__multi_solver_mode: # TODO: Maybe get rid of this. Instead configure how many solvers we want in run_sovlers
-                solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
-                
-                # Optional: keep your cross-assignment discrepancy
-                if self.__result is None:
-                    self.__result = res
-                elif res != self.__result:
-                    msg = ("Results of using different CVs differ. The conditional_constraints you added are not equivalent. \n"
-                           "If this is intentional, you can supress warnings of InequivalentConditionalConstraints category\n")
-                    warnings.warn(msg, InequivalentConditionalConstraints)
-            run = CVRun(
-                assignment=assignment,
-                smt2=smt2_str,
-                sat=res,
-                solver_results=solver_results if self.__multi_solver_mode else None,
-            )
-            # Block this exact CV assignment to avoid duplicates
-            meta.add(self._block_model(m, cvs))
-            
-            self.__runs.append(run) # record this CV assignment run
-            
-            if not self.__canonical_smt_str:
-                self.__canonical_smt_str = smt2_str
-            
-            count += 1
-        
-        if count == 0:
-            raise RuntimeError(
-                "Impossible to find any way of setting CVs under global constraints "
-                "(meta-solver over __global_constraints is UNSAT)."
-            )
-        
-        return first_result
-    
-    # def check_conditional_constraints_hamming(self, *args, condition=z3.BoolVal(True), max_count=5):
-    #     """
-    #     # TODO: BUGFIX: Very deprecated. Refer to check_conditional_constraints on check conditional logic
-    #     Evaluates conditional constraints on a given model and records various solver results based on the conditions.
-    #
-    #     conditions should be atomic boolean variables! composed expression like z3.And(a,b) is not allowed!
-    #
-    #     This method checks the satisfiability of global constraints combined with additional conditional constraints,
-    #     provided dynamically. It also handles the benchmark mode where it tries to find distinct solutions by
-    #     maximizing the Hamming distance between successive models, thus exploring the space of possible solutions.
-    #
-    #     Parameters:
-    #     - args : tuple
-    #         The arguments that represent additional constraints to be temporarily added for this check.
-    #     - condition : z3.BoolVal, optional
-    #         A Z3 boolean expression that must be satisfied for the conditional constraints to be added.
-    #         Default is z3.BoolVal(True), which means all conditions are considered true.
-    #     - max_count : int, optional
-    #         The maximum number of distinct model solutions (if there exist) to find in benchmark mode. Default is 5.
-    #
-    #     Returns:
-    #     - z3.CheckSatResult
-    #         The result of the final check with all conditional constraints applied.
-    #
-    #     Notes:
-    #     - In benchmark mode, this method also attempts to record and analyze differences in solver outputs by
-    #       generating different variable assignments that maximize the Hamming distance between them.
-    #     - This method internally manages several instances of the Solver class, depending on the mode of operation
-    #       and whether additional checks are performed.
-    #
-    #     """
-    #     s = z3.Solver()
-    #     s.add(self.__global_constraints)
-    #
-    #     # temporarily add the constraint and conditional constraint to be checked.
-    #     for arg in args:  # append the checked condition
-    #         self.__assertions.append((arg, condition))
-    #
-    #     if s.check() == z3.sat:
-    #         # possible combination of condition variables
-    #         model = s.model()
-    #
-    #         solver_with_conditional_constraint = Solver()
-    #
-    #         # add corresponding conditional constraints and try to solve
-    #         for (conditional_constraint, condition) in self.__assertions:
-    #             if condition == z3.BoolVal(True) or model.eval(condition):
-    #                 self.__history.append(("add", str(conditional_constraint.sexpr())))
-    #                 solver_with_conditional_constraint.add(conditional_constraint)
-    #
-    #         # Don't really record the smt files
-    #         solver_with_conditional_constraint.start_recording()
-    #         result = solver_with_conditional_constraint.check()
-    #
-    #         self.__condition_var_assignment_model = [model]
-    #
-    #         # Only launch multiple solvers when in benchmark mode
-    #         if self.__multi_solver_mode:
-    #             self.__runs = []
-    #
-    #             # find different combinations
-    #             opt = z3.Optimize()
-    #             opt.add(self.__global_constraints)
-    #
-    #             # Only atomic Bool CVs
-    #             cv_vars = [
-    #                 v for v in self.__CVs
-    #                 if z3.is_bool(v)
-    #                    and z3.is_const(v)
-    #                    and v.decl().kind() == z3.Z3_OP_UNINTERPRETED
-    #             ]
-    #
-    #             def eval_bool(m, v):
-    #                 return z3.is_true(m.eval(v, model_completion=True))
-    #
-    #             def block_assignment(assign_dict):
-    #                 # Blocks exactly this assignment
-    #                 lits = []
-    #                 for v in cv_vars:
-    #                     val = assign_dict[v]
-    #                     lits.append(z3.Not(v) if val else v)
-    #                 return z3.Or(lits) if lits else z3.BoolVal(False)
-    #
-    #             prev_assignments = []  # list[dict[BoolRef,bool]]
-    #
-    #             count = 0
-    #             min_dist = z3.Int("min_hamdist")
-    #
-    #             while count < max_count:
-    #                 opt.push()
-    #
-    #                 # Objective: assignments as different as possible
-    #                 if prev_assignments:
-    #                     dists = []
-    #                     for a in prev_assignments:
-    #                         dists.append(z3.Sum([
-    #                             z3.If(v != z3.BoolVal(a[v]), 1, 0)
-    #                             for v in cv_vars
-    #                         ]))
-    #
-    #                     opt.add(min_dist >= 0)
-    #                     for d in dists:
-    #                         opt.add(min_dist <= d)
-    #
-    #                     h = opt.maximize(min_dist)
-    #                 else:  # First pick: no prior points, any sat assignment is fine
-    #                     h = None
-    #
-    #                 if opt.check() != z3.sat:  # exhausted all assignments
-    #                     opt.pop()
-    #                     break
-    #
-    #                 m = opt.model()
-    #
-    #                 # Materialize current assignment into Python dict
-    #                 curr = {v: eval_bool(m, v) for v in cv_vars}
-    #
-    #                 opt.pop()
-    #
-    #                 # Use 'curr' to build/run solver_with_conditional_constraint as you do now
-    #                 solver_with_conditional_constraint = Solver()
-    #                 for (conditional_constraint, condition) in self.__assertions:
-    #                     if condition == z3.BoolVal(True) or curr[condition]:
-    #                         solver_with_conditional_constraint.add(conditional_constraint)
-    #
-    #                 result = solver_with_conditional_constraint.check()
-    #
-    #                 prev_assignments.append(curr)
-    #                 opt.add(block_assignment(curr))
-    #                 count += 1
-    #
-    #             # store smt file/str
-    #             self.__canonical_smt_str = solver_with_conditional_constraint.generate_smtlib()
-    #
-    #             with open("conditional_constraints.smt2", "w") as file:  # TODO
-    #                 file.write(self.__canonical_smt_str)
-    #
-    #             # launch multiple solvers and store resutls
-    #
-    #         # pop the temporarily added conditional constraints
-    #         for _ in args:
-    #             self.__assertions.pop()
-    #
-    #         self.__history.append(("result", str(solver_with_conditional_constraint.check(*args))))
-    #         return result
-    #     else:
-    #         raise RuntimeError("Impossible to find any way of building constraints"
-    #                            "The conditional constraints are not satisfiable under global constraints ")
-    
-    def push(self):
-        self.__history.append(("push", None))
-        super().push()
-    
-    def pop(self, *args, **kwargs):
-        self.__history.append(("pop", None))
-        super().pop(*args, **kwargs)
-    
-    def check(self, *args):
-        if args:
-            # Record assumptions distinctly (do NOT treat as asserts)
-            for arg in args:
-                assert z3.is_bool(arg), "Assumptions must be boolean expressions"
-                self._collect_decls(arg)
-            self.__history.append(("check_assuming", [str(a.sexpr()) for a in args]))
-            
-            res = super().check(*args)  # REAL assumptions semantics
-            self.__history.append(("result", res))
-            
-            return res
-        
-        self.__history.append(("check", ""))
-        res = super().check(*args)
-        self.__history.append(("result", res))
-        return res
-    
+                raise RuntimeError(
+                    "Impossible to find any CV assignment under global constraints (meta UNSAT)."
+                )
+
+            return first_result
+        finally:
+            meta.pop()
+
+    # ----------------------------
+    # Runs/introspection
+    # ----------------------------
     def get_runs(self) -> list[CVRun]:
         return list(self.__runs)
-    
+
     def get_condition_var_assignment_model(self):
         return [r.assignment for r in self.__runs]
-    
+
     def get_var_assignments_and_solvers_performance(self):
         return [
-            {
-                "assignment": r.assignment,
-                "sat": str(r.sat),
-                "solver_results": r.solver_results,
-            }
+            {"assignment": r.assignment, "sat": str(r.sat), "solver_results": r.solver_results}
             for r in self.__runs
         ]
+
+    # ----------------------------
+    # SMT2 export helpers
+    # ----------------------------
+    def _emit_header(self, out: StringIO):
+        out.write("(set-logic ALL)\n")
+        for name in sorted(self.__decls):
+            out.write(self.__decls[name] + "\n")
+
+    def _emit_ops(self, out: StringIO, ops: List[Tuple[str, Any]]):
+        for op, payload in ops:
+            if op == "add":
+                out.write(f"(assert {payload})\n")
+            elif op in ("push", "pop"):
+                out.write(f"({op} 1)\n")
+            elif op == "check":
+                out.write("(check-sat)\n")
+            elif op == "check_assuming":
+                out.write(f"(check-sat-assuming ({' '.join(payload)}))\n")
+            elif op == "result":
+                out.write(f"; Result: {payload}\n")
+            else:
+                raise RuntimeError(f"Unknown history op: {op}")
     
-    def get_smt2_per_assignment(self):
-        return [
-            {"assignment": r.assignment, "smt2": r.smt2, "sat": str(r.sat)}
-            for r in self.__runs
-        ]
+    def _state_ops_only(self) -> List[Tuple[str, Any]]:
+        """Return only state-mutating operations (no checks/results)."""
+        return [(op, p) for (op, p) in self.__history if op in ("add", "push", "pop")]
     
+    def _final_check_block_if_last(self) -> Optional[List[Tuple[str, Any]]]:
+        """
+        If the LAST recorded op is a check (check or check_assuming),
+        return [that check op] plus any immediately following result comment(s).
+        Otherwise return None.
+        """
+        if not self.__history:
+            return None
+        
+        last_op, last_payload = self.__history[-1]
+        if last_op not in ("check", "check_assuming"):
+            return None
+        
+        block = [(last_op, last_payload)]
+        
+        return block
+    
+    def _final_check_and_results_block(self) -> Optional[List[Tuple[str, Any]]]:
+        """
+        Returns the final (check/check_assuming) plus its trailing result comment(s),
+        but ONLY if that check is the final check in history AND there are no events
+        after its result(s).
+
+        Concretely, supports either tail shape:
+          ... ("check_assuming", [...]), ("result", "sat")
+          ... ("check", None), ("result", "unsat")
+
+        If the history does not end with a result right after a check, returns None.
+        """
+        if not self.__history:
+            return None
+        
+        # Typical case: history ends with ("result", ...)
+        if self.__history[-1][0] == "result":
+            # Scan backward to find the check that produced this result
+            i = len(self.__history) - 1
+            # collect all trailing results (usually exactly 1)
+            results = []
+            while i >= 0 and self.__history[i][0] == "result":
+                results.append(self.__history[i])
+                i -= 1
+            if i >= 0 and self.__history[i][0] in ("check", "check_assuming"):
+                check_evt = self.__history[i]
+                # Return in forward order: check then results
+                return [check_evt] + list(reversed(results))
+            return None
+        
+        # Edge case: history ends with a check and no recorded result
+        if self.__history[-1][0] in ("check", "check_assuming"):
+            return [self.__history[-1]]
+        
+        return None
+    
+    def generate_smt2_snapshot(self) -> str:
+        """
+        Snapshot policy:
+          - Replay declarations + all state ops (add/push/pop).
+          - Include ONLY the final recorded user check if the session ends with that check (+ its results).
+          - Otherwise append a final '(check-sat)' to make it runnable.
+        """
+        out = StringIO()
+        self._emit_header(out)
+        
+        # 1) State-only ops
+        self._emit_ops(out, self._state_ops_only())
+        
+        # 2) Final check only (if last events are check(+result))
+        final_block = self._final_check_and_results_block()
+        if final_block is not None:
+            # Only include the last check (and its results), not any earlier checks.
+            self._emit_ops(out, final_block)
+        else:
+            # Append a runnable final check
+            out.write("(check-sat)\n")
+        
+        s = out.getvalue()
+        out.close()
+        return s
+    
+    def generate_smt2_transcript(self) -> str:
+        """
+        Transcript = declarations + full recorded history of user operations, including all user checks in order.
+        Internal CV enumeration checks are excluded because they bypass the overridden check() and are not recorded.
+        """
+        out = StringIO()
+        self._emit_header(out)
+        self._emit_ops(out, self.__history)
+        s = out.getvalue()
+        out.close()
+        return s
+
+    def _build_snapshot_for_assumptions(self, assumptions: List[z3.BoolRef], result: Optional[z3.CheckSatResult] = None) -> str:
+        """
+        Build an SMT2 snapshot of current state + a single check-sat-assuming(assumptions).
+        Does NOT modify __history. Used for CVRun smt2 output.
+        """
+        for a in assumptions:
+            self._collect_decls(a)
+
+        out = StringIO()
+        self._emit_header(out)
+
+        # Replay only state operations
+        state_ops = [(op, p) for (op, p) in self.__history if op in ("add", "push", "pop")]
+        self._emit_ops(out, state_ops)
+
+        # Add the check line for these assumptions
+        out.write(f"(check-sat-assuming ({' '.join(a.sexpr() for a in assumptions)}))\n")
+        if result is not None:
+            out.write(f"; Result: {result}\n")
+
+        s = out.getvalue()
+        out.close()
+        return s
+
+    # Backward-compatible API
     def generate_smtlib(self):
+        # After check_conditional_constraints(), return canonical run SMT2.
         if self.__canonical_smt_str:
             return self.__canonical_smt_str
-        return self._generate_outer_replay_smtlib()
-    
-    def _generate_outer_replay_smtlib(self):
-        output = StringIO()
-        output.write(f"(set-logic ALL)\n") # QF_LIA -> ALL because the sexpr z3 generate is (_ pbeq ...) instead of
-        for name in sorted(self.__decls):
-            output.write(self.__decls[name] + "\n")
-        for operation in self.__history:
-            op, args = operation
-            if op == "initial_state":
-                output.write(args)
-            elif op == "add":
-                output.write(f"(assert {args})\n")
-            elif op in ["push", "pop"]:
-                output.write(f"({op} 1)\n")
-            elif op == "check":
-                output.write("(check-sat)\n")
-            elif op == "result":
-                output.write(f"; Result: {args}\n")
-            elif op == "check_assuming":
-                output.write(f"(check-sat-assuming ({' '.join(args)}))\n")
-            else:
-                raise RuntimeError(f"Unknown operation: {op} in z3_wrapper.Solver.generate_smtlib")
-        
-        smt_str = output.getvalue()
-        output.close()
-        return smt_str
+        return self.generate_smt2_snapshot()
+
+    # Optional alias if you used to call to_smt2 elsewhere
+    def to_smt2(self) -> str:
+        return self.generate_smt2_snapshot()
+
 
 
 def solver_demo():
