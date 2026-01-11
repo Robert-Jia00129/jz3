@@ -37,7 +37,7 @@ class Solver(z3.Solver):
       - Internal checks for CV enumeration are NOT recorded (bypass check override).
     """
 
-    def __init__(self, benchmark_mode: bool = False, *args, **kwargs):
+    def __init__(self, benchmark_mode: bool = False, record_smt: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Records all state-mutating ops AND user checks, in order.
@@ -59,6 +59,7 @@ class Solver(z3.Solver):
 
         self.__canonical_smt_str: str = ""  # smt2 of the first CV assignment run
         self.__multi_solver_mode = benchmark_mode
+        self.__record_smt = record_smt # use jz3 to customize smt2 recording (includes push, pop, check-assuming)
         self.__CVs = set()  # atomic Bool CVs
         self.__result = None
 
@@ -290,30 +291,31 @@ class Solver(z3.Solver):
                         assignment[condition.decl().name()] = True
 
                 self.__condition_var_assignment_model.append(assignment)
-
-                smt2_str = self._build_snapshot_for_assumptions(assumptions=assumptions, result=res)
-
-                solver_results = None
-                if self.__multi_solver_mode:
-                    solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
-                    if self.__result is None:
-                        self.__result = res
-                    elif res != self.__result:
-                        warnings.warn(
-                            "Results differ across CV assignments; conditional constraints may be inequivalent.\n"
-                            "Suppress with InequivalentConditionalConstraints if intentional.\n",
-                            InequivalentConditionalConstraints
-                        )
-
-                self.__runs.append(CVRun(
-                    assignment=assignment,
-                    smt2=smt2_str,
-                    sat=res,
-                    solver_results=solver_results if self.__multi_solver_mode else None,
-                ))
-
-                if not self.__canonical_smt_str:
-                    self.__canonical_smt_str = smt2_str
+                
+                if self.__record_smt or self.__multi_solver_mode:
+                    smt2_str = self._build_snapshot_for_assumptions(assumptions=assumptions, result=res)
+    
+                    solver_results = None
+                    if self.__multi_solver_mode:
+                        solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
+                        if self.__result is None:
+                            self.__result = res
+                        elif res != self.__result:
+                            warnings.warn(
+                                "Results differ across CV assignments; conditional constraints may be inequivalent.\n"
+                                "Suppress with InequivalentConditionalConstraints if intentional.\n",
+                                InequivalentConditionalConstraints
+                            )
+    
+                    self.__runs.append(CVRun(
+                        assignment=assignment,
+                        smt2=smt2_str,
+                        sat=res,
+                        solver_results=solver_results if self.__multi_solver_mode else None,
+                    ))
+    
+                    if not self.__canonical_smt_str:
+                        self.__canonical_smt_str = smt2_str
 
                 meta.add(self._block_model(m, cvs))
                 count += 1
@@ -493,6 +495,8 @@ class Solver(z3.Solver):
 
     # Optional alias if you used to call to_smt2 elsewhere
     def to_smt2(self) -> str:
+        if not self.__record_smt:
+            return super().to_smt2()
         return self.generate_smt2_snapshot()
 
 
