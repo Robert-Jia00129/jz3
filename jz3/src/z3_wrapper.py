@@ -18,13 +18,12 @@ class CVRun:
     solver_results: Optional[Dict] = None  # solver -> (total_time, did_timeout, ans) from run_solvers
 
 
-@dataclass(frozen=True)
-class CVRun:
-    assignment: dict[str, bool]
-    smt2: str
-    sat: z3.CheckSatResult
-    solver_results: Optional[Dict] = None
 
+@dataclass
+class _CVEnumCacheEntry:
+    entries: List[Dict[str, Any]]          # [{"cv_assumptions": [...], "assignment": {...}}, ...]
+    blocks: List[z3.BoolRef]               # blocking constraints to avoid repeats
+    exhausted: bool = False
 
 class Solver(z3.Solver):
     """
@@ -54,13 +53,17 @@ class Solver(z3.Solver):
         self.__assertions: List[Tuple[z3.BoolRef, z3.BoolRef]] = []  # (constraint, cv)
 
         # Global constraints over CVs only (meta space)
-        self.__global_constraints = z3.BoolVal(True)
         self.__meta_solver = z3.Solver()
 
         self.__canonical_smt_str: str = ""  # smt2 of the first CV assignment run
         self.__multi_solver_mode = benchmark_mode
         self.__record_smt = record_smt # use jz3 to customize smt2 recording (includes push, pop, check-assuming)
+        
         self.__CVs = set()  # atomic Bool CVs
+        # --- CV enumeration cache ---
+        # Keyed by (epoch, condition_sexpr, count_limit) -> list[{"cv_assumptions": [...], "assignment": {...}}]
+        self.__cv_enum_cache: Dict[str, _CVEnumCacheEntry] = {}
+        
         self.__result = None
 
         # For SMT2 emission
@@ -69,7 +72,8 @@ class Solver(z3.Solver):
         # For check_conditional_constraints outputs
         self.__runs: List[CVRun] = []
         self.__condition_var_assignment_model: List[dict[str, bool]] = []
-
+        
+        
     def __getattribute__(self, name):
         _allowed_methods = [
             'add', 'add_global_constraints', 'add_conditional_constraint',
@@ -135,10 +139,10 @@ class Solver(z3.Solver):
         """
         if not constraints:
             return
-        self.__global_constraints = z3.And(self.__global_constraints, *constraints)
         for c in constraints:
             self._collect_decls(c)
         self.__meta_solver.add(*constraints)
+        self.__cv_enum_cache.clear()
 
         if self.__meta_solver.check() != z3.sat: # No valid CV assignment
             raise RuntimeError("Global CV constraints are UNSAT; no CV assignment is possible.")
@@ -154,9 +158,9 @@ class Solver(z3.Solver):
         self.__history.append(("push", None))
         super().push()
 
-    def pop(self, *args, **kwargs):
-        self.__history.append(("pop", None))
-        super().pop(*args, **kwargs)
+    def pop(self, n=1):
+        self.__history.append(("pop", int(n)))
+        super().pop(n)
 
     # Conditional constraints: assert ONCE as guarded implications
     def add_conditional_constraint(self, *args, condition: z3.BoolRef = z3.BoolVal(True)):
@@ -182,7 +186,9 @@ class Solver(z3.Solver):
 
         # Track CVs (meta-space)
         if not z3.is_true(condition):
-            self.__CVs.add(condition)
+            if condition not in self.__CVs:
+                self.__CVs.add(condition)
+                self.__cv_enum_cache.clear()
 
         # Assert into the MAIN solver once, guarded by the CV.
         for cc in args:
@@ -237,7 +243,69 @@ class Solver(z3.Solver):
             val = self._eval_bool(m, v)
             lits.append(z3.Not(v) if val else v)
         return z3.Or(lits)
-
+    
+    def _condition_key(self, condition: z3.BoolRef) -> str:
+        return "true" if z3.is_true(condition) else condition.sexpr()
+    
+    def _ensure_cv_models(self, *, condition: z3.BoolRef, need: int) -> _CVEnumCacheEntry:
+        """
+        Ensure at least `need` distinct CV models are cached for this condition,
+        unless the space is exhausted.
+        Growth strategy: start at 5, then double.
+        """
+        assert need >= 1
+        
+        key = self._condition_key(condition)
+        cache = self.__cv_enum_cache.get(key)
+        if cache is None:
+            cache = _CVEnumCacheEntry(entries=[], blocks=[], exhausted=False)
+            self.__cv_enum_cache[key] = cache
+        
+        if cache.exhausted or len(cache.entries) >= need:
+            return cache
+        
+        # Doubling target
+        cur = len(cache.entries)
+        target = max(5 if cur == 0 else 2 * cur, need)
+        
+        meta = self.__meta_solver
+        cvs = sorted(list(self.__CVs), key=lambda v: v.decl().name())
+        
+        meta.push()
+        try:
+            if not z3.is_true(condition):
+                meta.add(condition)
+            
+            # Re-add prior blocks for this condition to continue enumeration without repeats
+            if cache.blocks:
+                meta.add(*cache.blocks)
+            
+            while len(cache.entries) < target:
+                if meta.check() != z3.sat:
+                    cache.exhausted = True
+                    break
+                
+                m = meta.model()
+                cv_lits = [v if self._eval_bool(m, v) else z3.Not(v) for v in cvs]
+                
+                # Ensure `condition` itself is included as an assumption in the *main* check
+                if not z3.is_true(condition) and condition not in cvs:
+                    cv_lits = [condition] + cv_lits
+                
+                assignment = {v.decl().name(): self._eval_bool(m, v) for v in cvs}
+                if not z3.is_true(condition) and z3.is_bool(condition) and z3.is_const(condition):
+                    assignment[condition.decl().name()] = True
+                
+                cache.entries.append({"cv_assumptions": cv_lits, "assignment": assignment})
+                
+                blk = self._block_model(m, cvs)
+                cache.blocks.append(blk)
+                meta.add(blk)
+            
+            return cache
+        finally:
+            meta.pop()
+    
     # ----------------------------
     # Conditional constraint checking (NOT recorded in transcript)
     # ----------------------------
@@ -258,76 +326,60 @@ class Solver(z3.Solver):
             if not z3.is_bool(a):
                 raise TypeError("Assumptions passed to check_conditional_constraints must be Bool expressions")
 
-        meta = self.__meta_solver
-        meta.push()
-        try:
+        count_limit = max_count if self.__multi_solver_mode else 1
+        
+        cache = self._ensure_cv_models(condition=condition, need=count_limit)
+        entries = cache.entries[:count_limit]
+        
+        if not entries:
+            raise RuntimeError("Not possible to find a CV assignment under global constraints.")
+        
+        first_result = None
+        
+        
+        for entry in entries:
+            assumptions = entry["cv_assumptions"] + list(args)
+
+            # Do NOT record this check in history.
+            res = self.check(*assumptions)
+            if first_result is None:
+                first_result = res
+
+            assignment = entry["assignment"]
             if not z3.is_true(condition):
-                meta.add(condition)
+                # condition forced True; include it in the assignment dict if it is a CV
+                if z3.is_bool(condition) and z3.is_const(condition):
+                    assignment[condition.decl().name()] = True
 
-            cvs = sorted(list(self.__CVs), key=lambda v: v.decl().name())
-            count_limit = max_count if self.__multi_solver_mode else 1
-            count = 0
-            first_result = None
+            self.__condition_var_assignment_model.append(assignment)
+            
+            if self.__record_smt or self.__multi_solver_mode:
+                smt2_str = self._build_snapshot_for_assumptions(assumptions=assumptions, result=res)
 
-            while count < count_limit and meta.check() == z3.sat:
-                m = meta.model()
+                solver_results = None
+                if self.__multi_solver_mode:
+                    solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
+                    if self.__result is None:
+                        self.__result = res
+                    elif res != self.__result:
+                        warnings.warn(
+                            "Results differ across CV assignments; conditional constraints may be inequivalent.\n"
+                            "Suppress with InequivalentConditionalConstraints if intentional.\n",
+                            InequivalentConditionalConstraints
+                        )
 
-                cv_assumptions = [v if self._eval_bool(m, v) else z3.Not(v) for v in cvs]
-                # Ensure the requested condition is enabled for the actual check as well.
-                if not z3.is_true(condition):
-                    cv_assumptions = [condition] + cv_assumptions
+                self.__runs.append(CVRun(
+                    assignment=assignment,
+                    smt2=smt2_str,
+                    sat=res,
+                    solver_results=solver_results if self.__multi_solver_mode else None,
+                ))
 
-                assumptions = cv_assumptions + list(args)
+                if not self.__canonical_smt_str:
+                    self.__canonical_smt_str = smt2_str
 
-                # Do NOT record this check in history.
-                res = self._check_no_record(*assumptions)
-                if first_result is None:
-                    first_result = res
 
-                assignment = {v.decl().name(): self._eval_bool(m, v) for v in cvs}
-                if not z3.is_true(condition):
-                    # condition forced True; include it in the assignment dict if it is a CV
-                    if z3.is_bool(condition) and z3.is_const(condition):
-                        assignment[condition.decl().name()] = True
-
-                self.__condition_var_assignment_model.append(assignment)
-                
-                if self.__record_smt or self.__multi_solver_mode:
-                    smt2_str = self._build_snapshot_for_assumptions(assumptions=assumptions, result=res)
-    
-                    solver_results = None
-                    if self.__multi_solver_mode:
-                        solver_results = run_solvers.run_solvers(smt2_str=smt2_str, verbose=False)
-                        if self.__result is None:
-                            self.__result = res
-                        elif res != self.__result:
-                            warnings.warn(
-                                "Results differ across CV assignments; conditional constraints may be inequivalent.\n"
-                                "Suppress with InequivalentConditionalConstraints if intentional.\n",
-                                InequivalentConditionalConstraints
-                            )
-    
-                    self.__runs.append(CVRun(
-                        assignment=assignment,
-                        smt2=smt2_str,
-                        sat=res,
-                        solver_results=solver_results if self.__multi_solver_mode else None,
-                    ))
-    
-                    if not self.__canonical_smt_str:
-                        self.__canonical_smt_str = smt2_str
-
-                meta.add(self._block_model(m, cvs))
-                count += 1
-
-            if count == 0:
-                raise RuntimeError(
-                    "Impossible to find any CV assignment under global constraints (meta UNSAT)."
-                )
-
-            return first_result
-        finally:
-            meta.pop()
+        return first_result
 
     # ----------------------------
     # Runs/introspection
@@ -356,8 +408,10 @@ class Solver(z3.Solver):
         for op, payload in ops:
             if op == "add":
                 out.write(f"(assert {payload})\n")
-            elif op in ("push", "pop"):
-                out.write(f"({op} 1)\n")
+            elif op == "push":
+                out.write(f"(push 1)\n")
+            elif op == "pop":
+                out.write(f"(pop {payload})\n")
             elif op == "check":
                 out.write("(check-sat)\n")
             elif op == "check_assuming":
