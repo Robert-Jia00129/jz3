@@ -4,6 +4,7 @@ import os
 import sys
 from pathlib import Path
 import warnings
+from typing import *
 
 class SMTFileErrorWarning(UserWarning):
     pass
@@ -51,7 +52,7 @@ def run_z3(smt2_file: str, time_out: int = 5):
     """
     :param smt_log_file_path:
     :param time_out: in seconds
-    :return:
+    :return: (total_time, did_timeout, ans)
     """
     start_time = time.time()
     did_timeout = False
@@ -67,6 +68,7 @@ def run_z3(smt2_file: str, time_out: int = 5):
         combined_output = ''
         result = exc
     return shared_code("Z3",start_time,did_timeout,combined_output,smt2_file,time_out)
+
 def shared_code(solvername,start_time,did_timeout,combined_output,smt2_file,time_out):
     ans = "timeout"
     end_time = time.time()
@@ -103,24 +105,51 @@ solvers = {
     # "yices": run_yices
 }
 
-
-def run_solvers(smt2_file:str='', smt2_str:str='', verbose=False, time_out=5, solvers = solvers):
+def run_solvers(
+        smt2_file: str = "", smt2_str: str = "",
+        verbose: bool = False,time_out: int = 5,
+        solvers: "str | list[str] | tuple[str, ...] | None" = None,
+        solver_map: dict = solvers,
+) -> Dict[str, Tuple[float, bool, str]]:
     """
     time_out: in seconds
-    solver: user defined dict that's similar to "solver", and they can call shared_func to define their own
+    solvers:
+      - None (default): run only z3
+      - "all": run all solvers in solver_map
+      - "z3" / "cvc5" (case-insensitive): run that solver
+      - list/tuple of solver names: run those solvers
+    solver_map: mapping from solver name -> runner function
+    
+    :return: mapping from solver name -> (total_time, did_timeout, ans)
     """
     results = {}
-    if smt2_str and smt2_file=='':
-        smt2_file = os.path.join(os.path.dirname(__file__), 'smt_file.smt2')
-        with open(smt2_file, 'w') as f:
+
+    if smt2_str and not smt2_file:
+        smt2_file = os.path.join(os.path.dirname(__file__), "smt_file.smt2")
+        with open(smt2_file, "w") as f:
             f.truncate()
             f.write(smt2_str)
 
-    for solver, run_function in solvers.items():
+    # Normalize user input into a list of solver keys to run
+    if solvers is None:
+        requested = ["z3"]
+    elif isinstance(solvers, str):
+        requested = list(solver_map.keys()) if solvers.lower() == "all" else [solvers]
+    else:
+        requested = list(solvers)
+
+    solver_map_lc = {name.lower(): name for name in solver_map.keys()}
+
+    for name in requested:
+        key = name.lower()
+        if key not in solver_map_lc:
+            raise ValueError(f"Unknown solver '{name}'. Available: {sorted(solver_map.keys())} (or 'all').")
+        solver_name = solver_map_lc[key]
+        run_function = solver_map[solver_name]
+
         if verbose:
-            print(f"Running {solver}...")
-        result = run_function(smt2_file,time_out=time_out)
-        results[solver] = result
+            print(f"Running {solver_name}...")
+        results[solver_name] = run_function(smt2_file, time_out=time_out)
 
     return results
 

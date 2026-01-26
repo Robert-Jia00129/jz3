@@ -1,0 +1,22 @@
+[
+  {
+    "assignment": {
+      "arith_distinct": false,
+      "arith_pbeq": true,
+      "bool_distinct": false,
+      "bool_pbeq": false
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun a1 () Bool)\n(declare-fun a2 () Bool)\n(declare-fun a3 () Bool)\n(declare-fun x () Int)\n(assert ((_ pbeq 1 1 1 1) a1 a2 a3))\n(assert (=> a1 (= x 1)))\n(assert (=> a2 (= x 2)))\n(assert (=> a3 (= x 3)))\n(check-sat-assuming ((= x 3)))\n; Result: sat\n"
+  },
+  {
+    "assignment": {
+      "arith_distinct": true,
+      "arith_pbeq": false,
+      "bool_distinct": false,
+      "bool_pbeq": false
+    },
+    "sat": "sat",
+    "smt2": "(set-logic ALL)\n(declare-fun x () Int)\n(assert (or (= x 1) (= x 2) (= x 3)))\n(check-sat-assuming ((= x 3)))\n; Result: sat\n"
+  }
+]
